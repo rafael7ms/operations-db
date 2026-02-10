@@ -6,6 +6,39 @@
     <title>Operations DB - Employees</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .full-width-container {
+            width: 100%;
+            max-width: none;
+            padding-left: 0;
+            padding-right: 0;
+        }
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+        }
+        tr.selectable-row {
+            cursor: pointer;
+            transition: background-color 0.15s ease;
+        }
+        tr.selectable-row:hover {
+            background-color: rgba(0, 0, 0, 0.05);
+        }
+        tr.selected-row {
+            background-color: rgba(13, 110, 253, 0.1);
+        }
+        tr.selected-row:hover {
+            background-color: rgba(13, 110, 253, 0.2);
+        }
+        #bulkActions {
+            display: none;
+        }
+        #bulkActions.show {
+            display: flex;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -52,12 +85,82 @@
             </button>
         </div>
 
+        <!-- Filter Section -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="row g-3">
+                    <div class="col-md-3">
+                        <label class="form-label">Search</label>
+                        <input type="text" class="form-control" id="searchFilter" placeholder="Search employees...">
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Department</label>
+                        <select class="form-select" id="deptFilter">
+                            <option value="">All Departments</option>
+                            <option value="Customer Support">Customer Support</option>
+                            <option value="Operations">Operations</option>
+                            <option value="Training">Training</option>
+                            <option value="IBC Support">IBC Support</option>
+                            <option value="Quality">Quality</option>
+                            <option value="Accounting">Accounting</option>
+                            <option value="BNS">BNS</option>
+                            <option value="HR">HR</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Role</label>
+                        <select class="form-select" id="roleFilter">
+                            <option value="">All Roles</option>
+                            <option value="Associate">Associate</option>
+                            <option value="OM">OM</option>
+                            <option value="Trainer">Trainer</option>
+                            <option value="Analyst">Analyst</option>
+                            <option value="Supervisor">Supervisor</option>
+                            <option value="Receptionist">Receptionist</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label">Status</label>
+                        <select class="form-select" id="statusFilter">
+                            <option value="">All Statuses</option>
+                            <option value="Active">Active</option>
+                            <option value="Inactive">Inactive</option>
+                            <option value="On Leave">On Leave</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
+                        <label class="form-label">Shift</label>
+                        <select class="form-select" id="shiftFilter">
+                            <option value="">All Shifts</option>
+                            <option value="Morning">Morning</option>
+                            <option value="Night">Night</option>
+                            <option value="Mixed Shift">Mixed Shift</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center mt-3">
+                    <button class="btn btn-outline-secondary btn-sm" onclick="clearFilters()">Clear Filters</button>
+                    <span class="text-muted" id="filterCount">Showing all employees</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Bulk Actions Bar -->
+        <div id="bulkActions" class="alert alert-primary d-flex justify-content-between align-items-center mb-3">
+            <span id="selectionCount">0 employee(s) selected</span>
+            <div class="btn-group">
+                <button class="btn btn-primary btn-sm" onclick="editSelected()">Edit Selected</button>
+                <button class="btn btn-danger btn-sm" onclick="deleteSelected()">Delete Selected</button>
+            </div>
+        </div>
+
         <div class="card">
             <div class="card-body">
                 <div class="table-container">
                     <table class="table table-striped table-hover">
                         <thead>
                             <tr>
+                                <th style="width: 40px;"></th>
                                 <th>ID</th>
                                 <th>First Name</th>
                                 <th>Last Name</th>
@@ -77,9 +180,10 @@
                                 <th>Actions</th>
                             </tr>
                         </thead>
-                        <tbody>
+                        <tbody id="employeeTableBody">
                             {% for employee in employees %}
-                            <tr>
+                            <tr class="selectable-row" data-employee-id="{{ employee.employee_id }}" data-first-name="{{ employee.first_name.lower() }}" data-last-name="{{ employee.last_name.lower() }}" data-email="{{ employee.company_email.lower() }}" data-department="{{ employee.department.lower() }}" data-role="{{ employee.role.lower() }}" data-shift="{{ employee.shift.lower() }}" data-status="{{ employee.status.lower() }}" data-batch="{{ employee.batch.lower() }}" data-manager="{{ employee.manager.lower() }}" data-supervisor="{{ employee.supervisor.lower() }}">
+                                <td><input type="checkbox" class="employee-checkbox" onclick="event.stopPropagation()"></td>
                                 <td>{{ employee.employee_id }}</td>
                                 <td>{{ employee.first_name }}</td>
                                 <td>{{ employee.last_name }}</td>
@@ -212,6 +316,194 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // ==================== Employee Selection ====================
+        let selectedEmployeeIds = new Set();
+
+        function updateBulkActions() {
+            const count = selectedEmployeeIds.size;
+            const bulkActions = document.getElementById('bulkActions');
+            const selectionCount = document.getElementById('selectionCount');
+
+            if (count > 0) {
+                bulkActions.classList.add('show');
+                selectionCount.textContent = `${count} employee${count > 1 ? 's' : ''} selected`;
+            } else {
+                bulkActions.classList.remove('show');
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const checkboxes = document.querySelectorAll('.employee-checkbox');
+            const rows = document.querySelectorAll('.selectable-row');
+
+            checkboxes.forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const row = this.closest('tr');
+                    const employeeId = parseInt(row.dataset.employeeId);
+
+                    if (this.checked) {
+                        selectedEmployeeIds.add(employeeId);
+                        row.classList.add('selected-row');
+                    } else {
+                        selectedEmployeeIds.delete(employeeId);
+                        row.classList.remove('selected-row');
+                    }
+                    updateBulkActions();
+                });
+            });
+
+            rows.forEach(row => {
+                row.addEventListener('click', function(e) {
+                    if (e.target.tagName !== 'BUTTON' && e.target.tagName !== 'INPUT') {
+                        const checkbox = this.querySelector('.employee-checkbox');
+                        if (checkbox) {
+                            checkbox.checked = !checkbox.checked;
+                            checkbox.dispatchEvent(new Event('change'));
+                        }
+                    }
+                });
+            });
+        });
+
+        // ==================== Bulk Actions ====================
+        function editSelected() {
+            if (selectedEmployeeIds.size !== 1) {
+                alert('Please select exactly one employee to edit.');
+                return;
+            }
+            const employeeId = selectedEmployeeIds.values().next().value;
+            editEmployee(employeeId);
+        }
+
+        function deleteSelected() {
+            if (selectedEmployeeIds.size === 0) {
+                alert('Please select at least one employee.');
+                return;
+            }
+
+            if (selectedEmployeeIds.size > 1) {
+                if (!confirm(`Are you sure you want to delete ${selectedEmployeeIds.size} employees?`)) {
+                    return;
+                }
+            } else {
+                if (!confirm('Are you sure you want to delete this employee?')) {
+                    return;
+                }
+            }
+
+            // Delete all selected employees
+            selectedEmployeeIds.forEach(function(employeeId) {
+                deleteEmployee(employeeId, false);
+            });
+
+            // Clear selection after deletion
+            selectedEmployeeIds.clear();
+            document.querySelectorAll('.employee-checkbox').forEach(cb => cb.checked = false);
+            document.querySelectorAll('.selectable-row').forEach(row => row.classList.remove('selected-row'));
+            updateBulkActions();
+
+            // Reload page after a short delay
+            setTimeout(() => location.reload(), 500);
+        }
+
+        // ==================== Filters ====================
+        function applyFilters() {
+            const searchTerm = document.getElementById('searchFilter').value.toLowerCase();
+            const deptFilter = document.getElementById('deptFilter').value.toLowerCase();
+            const roleFilter = document.getElementById('roleFilter').value.toLowerCase();
+            const statusFilter = document.getElementById('statusFilter').value.toLowerCase();
+            const shiftFilter = document.getElementById('shiftFilter').value.toLowerCase();
+
+            const rows = document.querySelectorAll('#employeeTableBody tr');
+            let visibleCount = 0;
+
+            rows.forEach(function(row) {
+                const firstName = row.dataset.firstName;
+                const lastName = row.dataset.lastName;
+                const email = row.dataset.email;
+                const department = row.dataset.department;
+                const role = row.dataset.role;
+                const shift = row.dataset.shift;
+                const status = row.dataset.status;
+                const batch = row.dataset.batch;
+                const manager = row.dataset.manager;
+                const supervisor = row.dataset.supervisor;
+
+                const matchesSearch = searchTerm === '' ||
+                    firstName.includes(searchTerm) ||
+                    lastName.includes(searchTerm) ||
+                    email.includes(searchTerm) ||
+                    batch.includes(searchTerm) ||
+                    manager.includes(searchTerm) ||
+                    supervisor.includes(searchTerm);
+
+                const matchesDept = deptFilter === '' || department === deptFilter;
+                const matchesRole = roleFilter === '' || role === roleFilter;
+                const matchesStatus = statusFilter === '' || status === statusFilter;
+                const matchesShift = shiftFilter === '' || shift === shiftFilter;
+
+                const show = matchesSearch && matchesDept && matchesRole && matchesStatus && matchesShift;
+
+                row.style.display = show ? '' : 'none';
+                if (show) visibleCount++;
+            });
+
+            // Update filter count display
+            const filterCount = document.getElementById('filterCount');
+            if (visibleCount === rows.length) {
+                filterCount.textContent = 'Showing all employees';
+            } else {
+                filterCount.textContent = `Showing ${visibleCount} of ${rows.length} employees`;
+            }
+        }
+
+        function clearFilters() {
+            document.getElementById('searchFilter').value = '';
+            document.getElementById('deptFilter').value = '';
+            document.getElementById('roleFilter').value = '';
+            document.getElementById('statusFilter').value = '';
+            document.getElementById('shiftFilter').value = '';
+            applyFilters();
+        }
+
+        // Add event listeners for filter inputs
+        document.addEventListener('DOMContentLoaded', function() {
+            ['searchFilter', 'deptFilter', 'roleFilter', 'statusFilter', 'shiftFilter'].forEach(function(id) {
+                const el = document.getElementById(id);
+                if (el) {
+                    el.addEventListener('change', applyFilters);
+                    el.addEventListener('keyup', applyFilters);
+                }
+            });
+        });
+
+        // ==================== API Helper Functions ====================
+        const apiUrl = '/api';
+
+        function deleteEmployee(employeeId, reloadAfter = true) {
+            fetch(`${apiUrl}/employees/${employeeId}`, {
+                method: 'DELETE'
+            })
+            .then(response => {
+                if (response.ok) {
+                    if (reloadAfter) {
+                        alert('Employee deleted successfully!');
+                        location.reload();
+                    }
+                } else {
+                    alert('Error deleting employee');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error deleting employee');
+            });
+        }
+
+        function editEmployee(employeeId) {
+            window.location.href = `/employees/${employeeId}/edit`;
+        }
+    </script>
 </body>
 </html>
