@@ -12,7 +12,9 @@
       "Bash(start:*)",
       "Bash(del:*)",
       "Bash(netstat:*)",
-      "Bash(findstr:*)"
+      "Bash(findstr:*)",
+      "Bash(tasklist:*)",
+      "Bash(timeout:*)"
     ]
   }
 }
