@@ -20,7 +20,7 @@ def init_database():
         print('Tables created successfully!')
 
         # Add default admin user if not exists
-        from app.models import User
+        from app.models import User, DBUser
         admin = User.query.filter_by(username='admin').first()
         if not admin:
             admin = User(
@@ -31,6 +31,18 @@ def init_database():
             admin.set_password('admin123')
             db.session.add(admin)
             print('Default admin user created (username: admin, password: admin123)')
+
+        # Add default database management user if not exists
+        db_admin = DBUser.query.filter_by(username='db_admin').first()
+        if not db_admin:
+            db_admin = DBUser(
+                username='db_admin',
+                email='db_admin@opsdb.local',
+                is_superuser=True
+            )
+            db_admin.set_password('dbadmin123')
+            db.session.add(db_admin)
+            print('Default DB admin user created (username: db_admin, password: dbadmin123)')
 
         # Add default dropdown options
         default_options = {
@@ -140,5 +152,44 @@ def init_database():
         print(f'Admin login: username="admin", password="admin123"')
 
 
+def create_user(username, email, password, is_superuser=False):
+    """Create a new database user."""
+    from app.models import DBUser
+    from app import create_app
+
+    app = create_app('development')
+
+    with app.app_context():
+        # Check if user exists
+        existing = DBUser.query.filter_by(username=username).first()
+        if existing:
+            print(f'User "{username}" already exists.')
+            return False
+
+        user = DBUser(
+            username=username,
+            email=email,
+            is_superuser=is_superuser
+        )
+        user.set_password(password)
+        db.session.add(user)
+        db.session.commit()
+        print(f'User "{username}" created successfully!')
+        return True
+
+
 if __name__ == '__main__':
-    init_database()
+    import sys
+
+    if len(sys.argv) > 1 and sys.argv[1] == '--create-user':
+        # Interactive user creation
+        print("Create New Database User")
+        print("------------------------")
+        username = input("Username: ")
+        email = input("Email: ")
+        password = input("Password: ")
+        is_superuser = input("Is Superuser? (y/N): ").lower() == 'y'
+
+        create_user(username, email, password, is_superuser)
+    else:
+        init_database()

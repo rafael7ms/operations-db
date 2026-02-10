@@ -1,51 +1,486 @@
-from flask import Blueprint, render_template
+from flask import Blueprint, render_template, request, redirect, url_for, flash
+from app import db
+from app.models import Employee, Schedule, AdminOptions, ExceptionRecord, User, RewardReason, EmployeeReward, Attendance, DBUser
+from flask_login import login_user, logout_user, login_required, current_user
+from app.utils.parsers import parse_name
+import pandas as pd
+import os
 
 bp = Blueprint('main', __name__)
 
 
+# ==================== AUTH ROUTES ====================
+
+@bp.route('/login', methods=['GET', 'POST'])
+def login():
+    """Login page."""
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        user = User.query.filter_by(username=username).first()
+        if user and user.check_password(password):
+            login_user(user)
+            return redirect(url_for('main.dashboard'))
+        flash('Invalid username or password', 'danger')
+    return render_template('login.html')
+
+
+@bp.route('/logout')
+@login_required
+def logout():
+    """Logout user."""
+    logout_user()
+    return redirect(url_for('main.login'))
+
+
+# ==================== MAIN ROUTES ====================
+
 @bp.route('/')
 def index():
-    """Home page."""
-    return render_template('index.html')
+    """Home page - redirects to login or dashboard."""
+    if current_user.is_authenticated:
+        return redirect(url_for('main.dashboard'))
+    return redirect(url_for('main.login'))
 
 
 @bp.route('/dashboard')
+@login_required
 def dashboard():
     """Dashboard with overview statistics."""
-    return render_template('dashboard.html')
+    total_employees = Employee.query.count()
+    active_employees = Employee.query.filter_by(status='Active').count()
+    on_leave = Employee.query.filter_by(status='On Leave').count()
+    in_training = ExceptionRecord.query.filter_by(exception_type='Training', status='Pending').count()
+
+    return render_template('dashboard.html',
+                         total_employees=total_employees,
+                         active_employees=active_employees,
+                         on_leave=on_leave,
+                         in_training=in_training)
 
 
-@bp.route('/employees')
+@bp.route('/employees', methods=['GET', 'POST'])
+@login_required
 def employees():
-    """Employee management."""
-    return render_template('employees.html')
+    """Employee management - list and add."""
+    if request.method == 'POST':
+        # Handle batch file upload
+        if 'file' in request.files:
+            file = request.files['file']
+            if file and file.filename.endswith(('.xlsx', '.xls')):
+                filepath = os.path.join('uploads', file.filename)
+                file.save(filepath)
+
+                try:
+                    df = pd.read_excel(filepath)
+                    imported = 0
+                    for idx, row in df.iterrows():
+                        try:
+                            first_name = str(row['First Name']).strip()
+                            last_name = str(row['Last Name']).strip()
+                            company_email = f"{first_name.lower()}.{last_name.lower()}@7managedservices.com"
+
+                            employee_id = int(row['Odoo ID'])
+                            agent_id = int(row['Agent ID']) if pd.notna(row['Agent ID']) else None
+
+                            emp = Employee(
+                                employee_id=employee_id,
+                                first_name=first_name,
+                                last_name=last_name,
+                                full_name=f"{first_name} {last_name}",
+                                company_email=company_email,
+                                batch=str(row['Batch']).strip(),
+                                agent_id=agent_id,
+                                bo_user=str(row['BO User']).strip() if pd.notna(row['BO User']) else None,
+                                axonify=str(row['Axonify']).strip() if pd.notna(row['Axonify']) else None,
+                                supervisor=str(row['Supervisor']).strip(),
+                                manager=str(row['Manager']).strip(),
+                                tier=int(row['Tier']) if pd.notna(row['Tier']) else None,
+                                shift=str(row['Shift']).strip(),
+                                department=str(row['Department']).strip(),
+                                role=str(row['Role']).strip(),
+                                hire_date=row['Hire Date'].to_pydatetime().date() if pd.notna(row['Hire Date']) else None,
+                                phase_1_date=row['Phase 1 Date'].to_pydatetime().date() if pd.notna(row['Phase 1 Date']) else None,
+                                phase_2_date=row['Phase 2 Date'].to_pydatetime().date() if pd.notna(row['Phase 2 Date']) else None,
+                                phase_3_date=row['Phase 3 Date'].to_pydatetime().date() if pd.notna(row['Phase 3 Date']) else None,
+                                status='Active'
+                            )
+                            db.session.add(emp)
+                            imported += 1
+                        except Exception as e:
+                            continue
+
+                    db.session.commit()
+                    flash(f'Imported {imported} employees!', 'success')
+                except Exception as e:
+                    flash(f'Error importing file: {str(e)}', 'danger')
+
+        return redirect(url_for('main.employees'))
+
+    # Get dropdown options
+    departments = AdminOptions.query.filter_by(category='department', is_active=True).all()
+    roles = AdminOptions.query.filter_by(category='role', is_active=True).all()
+    shifts = AdminOptions.query.filter_by(category='shift', is_active=True).all()
+    statuses = AdminOptions.query.filter_by(category='status', is_active=True).all()
+
+    employees_list = Employee.query.all()
+    return render_template('employees.html',
+                         employees=employees_list,
+                         departments=departments,
+                         roles=roles,
+                         shifts=shifts,
+                         statuses=statuses)
 
 
-@bp.route('/schedules')
+@bp.route('/employees/add', methods=['POST'])
+@login_required
+def add_employee():
+    """Add single employee."""
+    first_name = request.form.get('first_name')
+    last_name = request.form.get('last_name')
+    batch = request.form.get('batch')
+    supervisor = request.form.get('supervisor')
+    manager = request.form.get('manager')
+    shift = request.form.get('shift')
+    department = request.form.get('department')
+    role = request.form.get('role')
+    tier = request.form.get('tier')
+    company_email = request.form.get('company_email')
+
+    # Auto-generate employee_id from email domain
+    import hashlib
+    employee_id = int(hashlib.md5(company_email.encode()).hexdigest()[:8], 16)
+
+    emp = Employee(
+        employee_id=employee_id,
+        first_name=first_name,
+        last_name=last_name,
+        full_name=f"{first_name} {last_name}",
+        company_email=company_email,
+        batch=batch,
+        supervisor=supervisor,
+        manager=manager,
+        shift=shift,
+        department=department,
+        role=role,
+        tier=int(tier) if tier else None,
+        status='Active'
+    )
+    db.session.add(emp)
+    db.session.commit()
+    flash('Employee added successfully!', 'success')
+    return redirect(url_for('main.employees'))
+
+
+@bp.route('/employees/<int:employee_id>/edit', methods=['POST'])
+@login_required
+def edit_employee(employee_id):
+    """Edit employee."""
+    emp = Employee.query.get_or_404(employee_id)
+
+    emp.first_name = request.form.get('first_name')
+    emp.last_name = request.form.get('last_name')
+    emp.full_name = f"{emp.first_name} {emp.last_name}"
+    emp.company_email = request.form.get('company_email')
+    emp.batch = request.form.get('batch')
+    emp.supervisor = request.form.get('supervisor')
+    emp.manager = request.form.get('manager')
+    emp.shift = request.form.get('shift')
+    emp.department = request.form.get('department')
+    emp.role = request.form.get('role')
+    emp.tier = request.form.get('tier')
+    emp.status = request.form.get('status')
+    emp.attrition_date = request.form.get('attrition_date') or None
+
+    db.session.commit()
+    flash('Employee updated successfully!', 'success')
+    return redirect(url_for('main.employees'))
+
+
+@bp.route('/employees/<int:employee_id>/delete', methods=['POST'])
+@login_required
+def delete_employee(employee_id):
+    """Delete employee."""
+    emp = Employee.query.get_or_404(employee_id)
+    db.session.delete(emp)
+    db.session.commit()
+    flash('Employee deleted successfully!', 'success')
+    return redirect(url_for('main.employees'))
+
+
+@bp.route('/schedules', methods=['GET', 'POST'])
+@login_required
 def schedules():
     """Schedule management."""
-    return render_template('schedules.html')
+    if request.method == 'POST':
+        # Handle schedule import
+        if 'file' in request.files:
+            file = request.files['file']
+            if file and file.filename.endswith(('.xlsx', '.xls')):
+                filepath = os.path.join('uploads', file.filename)
+                file.save(filepath)
+
+                try:
+                    df = pd.read_excel(filepath)
+                    imported = 0
+                    for idx, row in df.iterrows():
+                        try:
+                            employee_id = int(row['Employee - ID'])
+                            start_date = row['Date - Nominal Date'].to_pydatetime().date()
+
+                            start_time = None
+                            if pd.notna(row['Earliest - Start']):
+                                start_time = row['Earliest - Start'].to_pydatetime().time()
+
+                            stop_time = None
+                            if pd.notna(row['Latest - Stop']):
+                                stop_time = row['Latest - Stop'].to_pydatetime().time()
+
+                            # Handle overnight shifts
+                            stop_date = start_date
+
+                            work_code = str(row['Work - Code']).strip() if pd.notna(row['Work - Code']) else None
+
+                            schedule = Schedule(
+                                employee_id=employee_id,
+                                start_date=start_date,
+                                start_time=start_time,
+                                stop_date=stop_date,
+                                stop_time=stop_time,
+                                work_code=work_code
+                            )
+                            db.session.add(schedule)
+                            imported += 1
+                        except Exception as e:
+                            continue
+
+                    db.session.commit()
+                    flash(f'Imported {imported} schedules!', 'success')
+                except Exception as e:
+                    flash(f'Error importing schedules: {str(e)}', 'danger')
+
+        return redirect(url_for('main.schedules'))
+
+    schedules_list = Schedule.query.all()
+    work_codes = AdminOptions.query.filter_by(category='work_code', is_active=True).all()
+    return render_template('schedules.html', schedules=schedules_list, work_codes=work_codes)
 
 
-@bp.route('/attendance')
+@bp.route('/attendance', methods=['GET', 'POST'])
+@login_required
 def attendance():
     """Attendance management."""
-    return render_template('attendance.html')
+    if request.method == 'POST':
+        if 'file' in request.files:
+            file = request.files['file']
+            if file and file.filename.endswith(('.xlsx', '.xls')):
+                filepath = os.path.join('uploads', file.filename)
+                file.save(filepath)
+
+                try:
+                    df = pd.read_excel(filepath)
+                    imported = 0
+                    for idx, row in df.iterrows():
+                        try:
+                            employee_id = int(row['Employee - ID'])
+                            date = row['Date'].to_pydatetime().date()
+                            check_in = row['Check In'].to_pydatetime().time()
+
+                            check_out = None
+                            if pd.notna(row.get('Check Out')):
+                                check_out = row['Check Out'].to_pydatetime().time()
+
+                            exception_type = None
+                            if pd.notna(row.get('Exception')):
+                                exception_type = str(row['Exception']).strip()
+
+                            attendance = Attendance(
+                                employee_id=employee_id,
+                                date=date,
+                                check_in=check_in,
+                                check_out=check_out,
+                                exception_type=exception_type,
+                                notes=str(row.get('Notes', '') or '')
+                            )
+                            db.session.add(attendance)
+                            imported += 1
+                        except Exception as e:
+                            continue
+
+                    db.session.commit()
+                    flash(f'Imported {imported} attendance records!', 'success')
+                except Exception as e:
+                    flash(f'Error importing attendance: {str(e)}', 'danger')
+
+        return redirect(url_for('main.attendance'))
+
+    attendances = Attendance.query.all()
+    return render_template('attendance.html', attendances=attendances)
 
 
-@bp.route('/exceptions')
+@bp.route('/exceptions', methods=['GET', 'POST'])
+@login_required
 def exceptions():
-    """Exception records."""
-    return render_template('exceptions.html')
+    """Exception management."""
+    if request.method == 'POST':
+        if 'file' in request.files:
+            file = request.files['file']
+            if file and file.filename.endswith(('.xlsx', '.xls')):
+                filepath = os.path.join('uploads', file.filename)
+                file.save(filepath)
+
+                try:
+                    df = pd.read_excel(filepath)
+                    imported = 0
+                    for idx, row in df.iterrows():
+                        try:
+                            employee_id = int(row['Employee - ID'])
+                            exception_type = str(row['Exception Type']).strip()
+                            start_date = row['Start Date'].to_pydatetime().date()
+                            end_date = row['End Date'].to_pydatetime().date()
+
+                            work_code = None
+                            if pd.notna(row.get('Work Code')):
+                                work_code = str(row['Work Code']).strip()
+
+                            exception = ExceptionRecord(
+                                employee_id=employee_id,
+                                exception_type=exception_type,
+                                start_date=start_date,
+                                end_date=end_date,
+                                work_code=work_code,
+                                status='Pending',
+                                supervisor_override=str(row.get('Supervisor Override', '') or '')
+                            )
+                            db.session.add(exception)
+                            imported += 1
+                        except Exception as e:
+                            continue
+
+                    db.session.commit()
+                    flash(f'Imported {imported} exception records!', 'success')
+                except Exception as e:
+                    flash(f'Error importing exceptions: {str(e)}', 'danger')
+
+        return redirect(url_for('main.exceptions'))
+
+    pending = ExceptionRecord.query.filter_by(status='Pending').all()
+    completed = ExceptionRecord.query.filter_by(status='Completed').all()
+    return render_template('exceptions.html', pending_exceptions=pending, completed_exceptions=completed)
 
 
-@bp.route('/admin/options')
+@bp.route('/admin/options', methods=['GET', 'POST'])
+@login_required
 def admin_options():
     """Admin options management."""
-    return render_template('admin_options.html')
+    categories = ['leave_type', 'work_code', 'exception_type', 'status', 'shift', 'department', 'role']
+    options_by_category = {}
+    for cat in categories:
+        options_by_category[cat] = AdminOptions.query.filter_by(category=cat, is_active=True).all()
+
+    if request.method == 'POST':
+        category = request.form.get('category')
+        value = request.form.get('value')
+        is_active = request.form.get('is_active') == 'on'
+
+        existing = AdminOptions.query.filter_by(category=category, value=value).first()
+        if not existing:
+            option = AdminOptions(category=category, value=value, is_active=is_active)
+            db.session.add(option)
+            db.session.commit()
+            flash('Option added successfully!', 'success')
+
+        return redirect(url_for('main.admin_options'))
+
+    return render_template('admin_options.html', categories=categories, options_by_category=options_by_category)
 
 
-@bp.route('/rewards')
+@bp.route('/rewards', methods=['GET', 'POST'])
+@login_required
 def rewards():
-    """Reward program."""
-    return render_template('rewards.html')
+    """Reward program management."""
+    reward_reasons = RewardReason.query.filter_by(is_active=True).all()
+    recent_rewards = EmployeeReward.query.order_by(EmployeeReward.created_at.desc()).limit(10).all()
+
+    if request.method == 'POST':
+        employee_id = request.form.get('employee_id')
+        reason_id = request.form.get('reason_id')
+        points = request.form.get('points')
+        date_awarded = request.form.get('date_awarded')
+
+        reward = EmployeeReward(
+            employee_id=employee_id,
+            reason_id=reason_id,
+            points=int(points),
+            date_awarded=date_awarded
+        )
+        db.session.add(reward)
+        db.session.commit()
+        flash('Points awarded successfully!', 'success')
+
+        return redirect(url_for('main.rewards'))
+
+    return render_template('rewards.html', reward_reasons=reward_reasons, recent_rewards=recent_rewards)
+
+
+# ==================== DB USERS ROUTES ====================
+
+@bp.route('/db_users')
+@login_required
+def db_users():
+    """Database users management."""
+    db_users_list = DBUser.query.all()
+    return render_template('db_users.html', db_users=db_users_list)
+
+
+@bp.route('/db_users/add', methods=['POST'])
+@login_required
+def add_db_user():
+    """Add database user."""
+    username = request.form.get('username')
+    email = request.form.get('email')
+    password = request.form.get('password')
+    is_superuser = request.form.get('is_superuser') == 'on'
+    is_active = request.form.get('is_active') == 'on'
+
+    user = DBUser(
+        username=username,
+        email=email,
+        is_superuser=is_superuser,
+        is_active=is_active
+    )
+    user.set_password(password)
+    db.session.add(user)
+    db.session.commit()
+    flash('Database user added successfully!', 'success')
+    return redirect(url_for('main.db_users'))
+
+
+@bp.route('/db_users/<int:user_id>/edit', methods=['POST'])
+@login_required
+def edit_db_user(user_id):
+    """Edit database user."""
+    user = DBUser.query.get_or_404(user_id)
+
+    user.username = request.form.get('username')
+    user.email = request.form.get('email')
+    user.is_superuser = request.form.get('is_superuser') == 'on'
+    user.is_active = request.form.get('is_active') == 'on'
+
+    if request.form.get('password'):
+        user.set_password(request.form.get('password'))
+
+    db.session.commit()
+    flash('Database user updated successfully!', 'success')
+    return redirect(url_for('main.db_users'))
+
+
+@bp.route('/db_users/<int:user_id>/delete', methods=['POST'])
+@login_required
+def delete_db_user(user_id):
+    """Delete database user."""
+    user = DBUser.query.get_or_404(user_id)
+    db.session.delete(user)
+    db.session.commit()
+    flash('Database user deleted successfully!', 'success')
+    return redirect(url_for('main.db_users'))

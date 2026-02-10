@@ -110,6 +110,9 @@ class Schedule(db.Model):
     work_code = db.Column(db.String(50))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Relationship to Employee
+    employee = db.relationship('Employee', backref='schedules')
+
     def __repr__(self):
         return f'<Schedule {self.schedule_id}: {self.employee_id} - {self.start_date}>'
 
@@ -288,6 +291,36 @@ class User(UserMixin, db.Model):
         return f'<User {self.username}>'
 
 
+class DBUser(db.Model):
+    """Database management users - separate from system users."""
+    __tablename__ = 'db_users'
+
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), nullable=False, unique=True)
+    email = db.Column(db.String(120), nullable=False, unique=True)
+    password_hash = db.Column(db.String(128), nullable=False)
+    is_superuser = db.Column(db.Boolean, default=False)
+    is_active = db.Column(db.Boolean, default=True)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    last_login = db.Column(db.DateTime)
+    notes = db.Column(db.Text)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+    def __repr__(self):
+        return f'<DBUser {self.username}>'
+
+
+# User loader callback for Flask-Login
 @login_manager.user_loader
 def load_user(user_id):
-    return User.query.get(int(user_id))
+    """Load user from either User or DBUser table."""
+    from app.models import User, DBUser
+    user = User.query.get(int(user_id))
+    if user:
+        return user
+    return DBUser.query.get(int(user_id))
