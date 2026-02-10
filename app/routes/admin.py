@@ -172,29 +172,33 @@ def add_employee():
     return redirect(url_for('main.employees'))
 
 
-@bp.route('/employees/<int:employee_id>/edit', methods=['POST'])
+@bp.route('/employees/<int:employee_id>/edit', methods=['GET', 'POST'])
 @login_required
 def edit_employee(employee_id):
     """Edit employee."""
     emp = Employee.query.get_or_404(employee_id)
 
-    emp.first_name = request.form.get('first_name')
-    emp.last_name = request.form.get('last_name')
-    emp.full_name = f"{emp.first_name} {emp.last_name}"
-    emp.company_email = request.form.get('company_email')
-    emp.batch = request.form.get('batch')
-    emp.supervisor = request.form.get('supervisor')
-    emp.manager = request.form.get('manager')
-    emp.shift = request.form.get('shift')
-    emp.department = request.form.get('department')
-    emp.role = request.form.get('role')
-    emp.tier = request.form.get('tier')
-    emp.status = request.form.get('status')
-    emp.attrition_date = request.form.get('attrition_date') or None
+    if request.method == 'POST':
+        emp.first_name = request.form.get('first_name')
+        emp.last_name = request.form.get('last_name')
+        emp.full_name = f"{emp.first_name} {emp.last_name}"
+        emp.company_email = request.form.get('company_email')
+        emp.batch = request.form.get('batch')
+        emp.supervisor = request.form.get('supervisor')
+        emp.manager = request.form.get('manager')
+        emp.shift = request.form.get('shift')
+        emp.department = request.form.get('department')
+        emp.role = request.form.get('role')
+        emp.tier = request.form.get('tier')
+        emp.status = request.form.get('status')
+        emp.attrition_date = request.form.get('attrition_date') or None
 
-    db.session.commit()
-    flash('Employee updated successfully!', 'success')
-    return redirect(url_for('main.employees'))
+        db.session.commit()
+        flash('Employee updated successfully!', 'success')
+        return redirect(url_for('main.employees'))
+
+    # GET request - show edit form
+    return render_template('edit_employee.html', employee=emp)
 
 
 @bp.route('/employees/<int:employee_id>/delete', methods=['POST'])

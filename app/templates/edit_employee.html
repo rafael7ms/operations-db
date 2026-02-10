@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operations DB - Edit Employee</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Operations DB</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/employees">Employees</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/schedules">Schedules</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/attendance">Attendance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/exceptions">Exceptions</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/db_users">DB Users</a>
+                    </li>
+                </ul>
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/logout">Logout</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h1>Edit Employee</h1>
+            <a href="/employees" class="btn btn-secondary">Back to Employees</a>
+        </div>
+
+        <div class="card">
+            <div class="card-body">
+                <form method="POST" action="">
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Employee ID (Odoo ID)</label>
+                            <input type="number" class="form-control" name="employee_id" value="{{ employee.employee_id }}" readonly>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Name</label>
+                            <input type="text" class="form-control" name="name" value="{{ employee.full_name }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Company Email</label>
+                            <input type="email" class="form-control" name="company_email" value="{{ employee.company_email }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Batch</label>
+                            <input type="text" class="form-control" name="batch" value="{{ employee.batch }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Supervisor</label>
+                            <input type="text" class="form-control" name="supervisor" value="{{ employee.supervisor }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Manager</label>
+                            <input type="text" class="form-control" name="manager" value="{{ employee.manager }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Tier</label>
+                            <input type="number" class="form-control" name="tier" value="{{ employee.tier or '' }}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Shift</label>
+                            <select class="form-select" name="shift">
+                                <option value="Morning" {% if employee.shift == 'Morning' %}selected{% endif %}>Morning</option>
+                                <option value="Night" {% if employee.shift == 'Night' %}selected{% endif %}>Night</option>
+                                <option value="Mixed Shift" {% if employee.shift == 'Mixed Shift' %}selected{% endif %}>Mixed Shift</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Department</label>
+                            <select class="form-select" name="department">
+                                <option value="Customer Support" {% if employee.department == 'Customer Support' %}selected{% endif %}>Customer Support</option>
+                                <option value="Operations" {% if employee.department == 'Operations' %}selected{% endif %}>Operations</option>
+                                <option value="Training" {% if employee.department == 'Training' %}selected{% endif %}>Training</option>
+                                <option value="IBC Support" {% if employee.department == 'IBC Support' %}selected{% endif %}>IBC Support</option>
+                                <option value="Quality" {% if employee.department == 'Quality' %}selected{% endif %}>Quality</option>
+                                <option value="Accounting" {% if employee.department == 'Accounting' %}selected{% endif %}>Accounting</option>
+                                <option value="BNS" {% if employee.department == 'BNS' %}selected{% endif %}>BNS</option>
+                                <option value="HR" {% if employee.department == 'HR' %}selected{% endif %}>HR</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Role</label>
+                            <select class="form-select" name="role">
+                                <option value="Associate" {% if employee.role == 'Associate' %}selected{% endif %}>Associate</option>
+                                <option value="OM" {% if employee.role == 'OM' %}selected{% endif %}>OM</option>
+                                <option value="Trainer" {% if employee.role == 'Trainer' %}selected{% endif %}>Trainer</option>
+                                <option value="Analyst" {% if employee.role == 'Analyst' %}selected{% endif %}>Analyst</option>
+                                <option value="Supervisor" {% if employee.role == 'Supervisor' %}selected{% endif %}>Supervisor</option>
+                                <option value="Receptionist" {% if employee.role == 'Receptionist' %}selected{% endif %}>Receptionist</option>
+                            </select>
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Hire Date</label>
+                            <input type="date" class="form-control" name="hire_date" value="{{ employee.hire_date.strftime('%Y-%m-%d') if employee.hire_date else '' }}">
+                        </div>
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Status</label>
+                            <select class="form-select" name="status">
+                                <option value="Active" {% if employee.status == 'Active' %}selected{% endif %}>Active</option>
+                                <option value="Inactive" {% if employee.status == 'Inactive' %}selected{% endif %}>Inactive</option>
+                                <option value="On Leave" {% if employee.status == 'On Leave' %}selected{% endif %}>On Leave</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">First Name</label>
+                            <input type="text" class="form-control" name="first_name" value="{{ employee.first_name }}" required>
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" class="form-control" name="last_name" value="{{ employee.last_name }}" required>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Attrition Date (Optional)</label>
+                            <input type="date" class="form-control" name="attrition_date" value="{{ employee.attrition_date.strftime('%Y-%m-%d') if employee.attrition_date else '' }}">
+                        </div>
+                    </div>
+                    <div class="d-grid gap-2 d-md-flex justify-content-md-end">
+                        <button type="submit" class="btn btn-primary">Save Changes</button>
+                        <a href="/employees" class="btn btn-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
