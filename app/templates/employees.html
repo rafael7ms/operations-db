@@ -172,6 +172,8 @@
                                 <th>Supervisor</th>
                                 <th>Tier</th>
                                 <th>Batch</th>
+                                <th>RUEX ID</th>
+                                <th>Axonify ID</th>
                                 <th>Status</th>
                                 <th>Hire Date</th>
                                 <th>Phase 1</th>
@@ -182,7 +184,7 @@
                         </thead>
                         <tbody id="employeeTableBody">
                             {% for employee in employees %}
-                            <tr class="selectable-row" data-employee-id="{{ employee.employee_id }}" data-first-name="{{ employee.first_name.lower() }}" data-last-name="{{ employee.last_name.lower() }}" data-email="{{ employee.company_email.lower() }}" data-department="{{ employee.department.lower() }}" data-role="{{ employee.role.lower() }}" data-shift="{{ employee.shift.lower() }}" data-status="{{ employee.status.lower() }}" data-batch="{{ employee.batch.lower() }}" data-manager="{{ employee.manager.lower() }}" data-supervisor="{{ employee.supervisor.lower() }}">
+                            <tr class="selectable-row" data-employee-id="{{ employee.employee_id }}" data-first-name="{{ employee.first_name.lower() }}" data-last-name="{{ employee.last_name.lower() }}" data-email="{{ employee.company_email.lower() }}" data-department="{{ employee.department.lower() }}" data-role="{{ employee.role.lower() }}" data-shift="{{ employee.shift.lower() }}" data-status="{{ employee.status.lower() }}" data-batch="{{ employee.batch.lower() }}" data-manager="{{ employee.manager.lower() }}" data-supervisor="{{ employee.supervisor.lower() }}" data-ruex="{{ (employee.ruex_id or '').lower() }}" data-axonify="{{ (employee.axonify_id or '').lower() }}">
                                 <td><input type="checkbox" class="employee-checkbox" onclick="event.stopPropagation()"></td>
                                 <td>{{ employee.employee_id }}</td>
                                 <td>{{ employee.first_name }}</td>
@@ -195,6 +197,8 @@
                                 <td>{{ employee.supervisor }}</td>
                                 <td>{{ employee.tier or '' }}</td>
                                 <td>{{ employee.batch }}</td>
+                                <td>{{ employee.ruex_id or '' }}</td>
+                                <td>{{ employee.axonify_id or '' }}</td>
                                 <td><span class="badge bg-{{ 'success' if employee.status == 'Active' else 'secondary' }}">{{ employee.status }}</span></td>
                                 <td>{{ employee.hire_date.strftime('%Y-%m-%d') if employee.hire_date else '' }}</td>
                                 <td>{{ employee.phase_1_date.strftime('%Y-%m-%d') if employee.phase_1_date else '' }}</td>
@@ -429,6 +433,8 @@
                 const batch = row.dataset.batch;
                 const manager = row.dataset.manager;
                 const supervisor = row.dataset.supervisor;
+                const ruex = row.dataset.ruex;
+                const axonify = row.dataset.axonify;
 
                 const matchesSearch = searchTerm === '' ||
                     firstName.includes(searchTerm) ||
@@ -436,7 +442,9 @@
                     email.includes(searchTerm) ||
                     batch.includes(searchTerm) ||
                     manager.includes(searchTerm) ||
-                    supervisor.includes(searchTerm);
+                    supervisor.includes(searchTerm) ||
+                    ruex.includes(searchTerm) ||
+                    axonify.includes(searchTerm);
 
                 const matchesDept = deptFilter === '' || department === deptFilter;
                 const matchesRole = roleFilter === '' || role === roleFilter;

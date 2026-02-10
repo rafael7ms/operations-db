@@ -91,8 +91,8 @@ def employees():
                                 company_email=company_email,
                                 batch=str(row['Batch']).strip(),
                                 agent_id=agent_id,
-                                bo_user=str(row['BO User']).strip() if pd.notna(row['BO User']) else None,
-                                axonify=str(row['Axonify']).strip() if pd.notna(row['Axonify']) else None,
+                                ruex_id=str(row['BO User']).strip() if pd.notna(row['BO User']) else None,
+                                axonify_id=str(row['Axonify']).strip() if pd.notna(row['Axonify']) else None,
                                 supervisor=str(row['Supervisor']).strip(),
                                 manager=str(row['Manager']).strip(),
                                 tier=int(row['Tier']) if pd.notna(row['Tier']) else None,
@@ -146,6 +146,12 @@ def add_employee():
     role = request.form.get('role')
     tier = request.form.get('tier')
     company_email = request.form.get('company_email')
+    ruex_id = request.form.get('ruex_id')
+    axonify_id = request.form.get('axonify_id')
+    agent_id = request.form.get('agent_id')
+    access_card = request.form.get('access_card')
+    token_serial = request.form.get('token_serial')
+    building_card = request.form.get('building_card')
 
     # Auto-generate employee_id from email domain
     import hashlib
@@ -164,6 +170,12 @@ def add_employee():
         department=department,
         role=role,
         tier=int(tier) if tier else None,
+        ruex_id=ruex_id or None,
+        axonify_id=axonify_id or None,
+        agent_id=int(agent_id) if agent_id else None,
+        access_card=access_card or None,
+        token_serial=token_serial or None,
+        building_card=building_card or None,
         status='Active'
     )
     db.session.add(emp)
@@ -192,6 +204,12 @@ def edit_employee(employee_id):
         emp.tier = request.form.get('tier')
         emp.status = request.form.get('status')
         emp.attrition_date = request.form.get('attrition_date') or None
+        emp.ruex_id = request.form.get('ruex_id') or None
+        emp.axonify_id = request.form.get('axonify_id') or None
+        emp.agent_id = request.form.get('agent_id') or None
+        emp.access_card = request.form.get('access_card') or None
+        emp.token_serial = request.form.get('token_serial') or None
+        emp.building_card = request.form.get('building_card') or None
 
         db.session.commit()
         flash('Employee updated successfully!', 'success')

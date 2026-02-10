@@ -146,6 +146,36 @@
                     </div>
                     <div class="row">
                         <div class="col-md-6 mb-3">
+                            <label class="form-label">RUEX ID (BO User)</label>
+                            <input type="text" class="form-control" name="ruex_id" value="{{ employee.ruex_id or '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Axonify ID</label>
+                            <input type="text" class="form-control" name="axonify_id" value="{{ employee.axonify_id or '' }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Agent ID</label>
+                            <input type="number" class="form-control" name="agent_id" value="{{ employee.agent_id or '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Access Card</label>
+                            <input type="text" class="form-control" name="access_card" value="{{ employee.access_card or '' }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Token Serial</label>
+                            <input type="text" class="form-control" name="token_serial" value="{{ employee.token_serial or '' }}">
+                        </div>
+                        <div class="col-md-6 mb-3">
+                            <label class="form-label">Building Card</label>
+                            <input type="text" class="form-control" name="building_card" value="{{ employee.building_card or '' }}">
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-6 mb-3">
                             <label class="form-label">Attrition Date (Optional)</label>
                             <input type="date" class="form-control" name="attrition_date" value="{{ employee.attrition_date.strftime('%Y-%m-%d') if employee.attrition_date else '' }}">
                         </div>
