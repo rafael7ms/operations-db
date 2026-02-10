@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operations DB - Home</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Operations DB</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/employees">Employees</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/schedules">Schedules</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/attendance">Attendance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/exceptions">Exceptions</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/admin/options">Admin Options</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/rewards">Rewards</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="text-center">
+            <h1 class="display-4">Welcome to Operations DB</h1>
+            <p class="lead">Workforce scheduling and attendance management system</p>
+            <hr class="my-4">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Employee Management</h5>
+                            <p class="card-text">Add, edit, and manage employee records including training phases.</p>
+                            <a href="/employees" class="btn btn-primary">Go to Employees</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Schedule Management</h5>
+                            <p class="card-text">Manage employee schedules, swaps, and cover-ups.</p>
+                            <a href="/schedules" class="btn btn-primary">Go to Schedules</a>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-4">
+                    <div class="card">
+                        <div class="card-body">
+                            <h5 class="card-title">Attendance & Reports</h5>
+                            <p class="card-text">Track attendance, exceptions, and generate reports.</p>
+                            <a href="/attendance" class="btn btn-primary">Go to Attendance</a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
