@@ -1,4 +1,4 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from app import db
 from app.models import Employee, Schedule, AdminOptions, ExceptionRecord, User, RewardReason, EmployeeReward, Attendance, DBUser
 from flask_login import login_user, logout_user, login_required, current_user
@@ -245,6 +245,7 @@ def schedules():
                 try:
                     df = pd.read_excel(filepath)
                     imported = 0
+                    errors = []
                     for idx, row in df.iterrows():
                         try:
                             employee_id = int(row['Employee - ID'])
@@ -274,12 +275,21 @@ def schedules():
                             db.session.add(schedule)
                             imported += 1
                         except Exception as e:
-                            continue
+                            errors.append(f'Row {idx + 2}: {str(e)}')
 
                     db.session.commit()
                     flash(f'Imported {imported} schedules!', 'success')
+
+                    # Return JSON for AJAX requests
+                    if request.is_json:
+                        return jsonify({'success': True, 'imported': imported, 'errors': errors})
+
                 except Exception as e:
                     flash(f'Error importing schedules: {str(e)}', 'danger')
+                    if request.is_json:
+                        return jsonify({'success': False, 'error': str(e)})
+
+                return redirect(url_for('main.schedules'))
 
         return redirect(url_for('main.schedules'))
 
@@ -302,6 +312,7 @@ def attendance():
                 try:
                     df = pd.read_excel(filepath)
                     imported = 0
+                    errors = []
                     for idx, row in df.iterrows():
                         try:
                             employee_id = int(row['Employee - ID'])
@@ -327,12 +338,21 @@ def attendance():
                             db.session.add(attendance)
                             imported += 1
                         except Exception as e:
-                            continue
+                            errors.append(f'Row {idx + 2}: {str(e)}')
 
                     db.session.commit()
                     flash(f'Imported {imported} attendance records!', 'success')
+
+                    # Return JSON for AJAX requests
+                    if request.is_json:
+                        return jsonify({'success': True, 'imported': imported, 'errors': errors})
+
                 except Exception as e:
                     flash(f'Error importing attendance: {str(e)}', 'danger')
+                    if request.is_json:
+                        return jsonify({'success': False, 'error': str(e)})
+
+                return redirect(url_for('main.attendance'))
 
         return redirect(url_for('main.attendance'))
 
@@ -354,6 +374,7 @@ def exceptions():
                 try:
                     df = pd.read_excel(filepath)
                     imported = 0
+                    errors = []
                     for idx, row in df.iterrows():
                         try:
                             employee_id = int(row['Employee - ID'])
@@ -377,12 +398,21 @@ def exceptions():
                             db.session.add(exception)
                             imported += 1
                         except Exception as e:
-                            continue
+                            errors.append(f'Row {idx + 2}: {str(e)}')
 
                     db.session.commit()
                     flash(f'Imported {imported} exception records!', 'success')
+
+                    # Return JSON for AJAX requests
+                    if request.is_json:
+                        return jsonify({'success': True, 'imported': imported, 'errors': errors})
+
                 except Exception as e:
                     flash(f'Error importing exceptions: {str(e)}', 'danger')
+                    if request.is_json:
+                        return jsonify({'success': False, 'error': str(e)})
+
+                return redirect(url_for('main.exceptions'))
 
         return redirect(url_for('main.exceptions'))
 

@@ -116,8 +116,111 @@ function submitScheduleForm() {
 }
 
 function uploadSchedules() {
-    // TODO: Implement Excel upload
-    alert('Upload schedules functionality not yet implemented');
+    // Create a modal-like interface for file selection
+    const container = document.createElement('div');
+    container.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:1000;display:flex;justify-content:center;align-items:center;';
+
+    const modal = document.createElement('div');
+    modal.style.cssText = 'background:white;padding:2rem;border-radius:8px;max-width:500px;width:90%;';
+    modal.innerHTML = `
+        <h3>Upload Schedules</h3>
+        <p>Upload schedule Excel file. Optionally upload employee file for RUEX ID matching.</p>
+        <form id="scheduleUploadForm" style="margin-top:1rem;">
+            <div style="margin-bottom:1rem;">
+                <label style="display:block;margin-bottom:0.5rem;font-weight:bold;">Schedule File (required)</label>
+                <input type="file" id="scheduleFile" accept=".xlsx,.xls" style="width:100%;padding:0.5rem;border:1px solid #ccc;border-radius:4px;">
+                <small style="color:#666;">Excel file with columns: Employee - ID, Date - Nominal Date, Earliest - Start, Latest - Stop, Work - Code</small>
+            </div>
+            <div style="margin-bottom:1rem;">
+                <label style="display:block;margin-bottom:0.5rem;font-weight:bold;">Employee File (optional)</label>
+                <input type="file" id="employeeFile" accept=".xlsx,.xls" style="width:100%;padding:0.5rem;border:1px solid #ccc;border-radius:4px;">
+                <small style="color:#666;">Employee Excel file for RUEX ID matching (first letter + last name)</small>
+            </div>
+            <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+                <button type="button" id="cancelUpload" class="btn btn-secondary">Cancel</button>
+                <button type="submit" class="btn btn-primary">Upload</button>
+            </div>
+        </form>
+    `;
+
+    container.appendChild(modal);
+    document.body.appendChild(container);
+
+    const form = document.getElementById('scheduleUploadForm');
+    const cancelBtn = document.getElementById('cancelUpload');
+
+    function closeModal() {
+        document.body.removeChild(container);
+    }
+
+    cancelBtn.addEventListener('click', closeModal);
+
+    form.addEventListener('submit', e => {
+        e.preventDefault();
+
+        const scheduleFile = document.getElementById('scheduleFile').files[0];
+        const employeeFile = document.getElementById('employeeFile').files[0];
+
+        if (!scheduleFile) {
+            alert('Please select a schedule file');
+            return;
+        }
+
+        if (!confirm(`Upload ${scheduleFile.name}? This will add schedules to the database.`)) {
+            closeModal();
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', scheduleFile);
+        if (employeeFile) {
+            formData.append('employee_file', employeeFile);
+        }
+
+        showLoading('Uploading schedules...');
+
+        fetch('/api/schedules/batch', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            closeModal();
+            if (data.success_count || data.error_count) {
+                const msg = `Import completed: ${data.success_count} schedules imported, ${data.error_count} errors`;
+                alert(msg + (data.errors ? '\n\nErrors:\n' + data.errors.join('\n') : ''));
+            } else {
+                alert('Error: ' + (data.message || data.error || 'Unknown error'));
+            }
+            location.reload();
+        })
+        .catch(error => {
+            hideLoading();
+            closeModal();
+            console.error('Error:', error);
+            alert('Error uploading file: ' + error.message);
+        });
+    });
+}
+
+function showLoading(message) {
+    let loading = document.getElementById('loadingOverlay');
+    if (!loading) {
+        loading = document.createElement('div');
+        loading.id = 'loadingOverlay';
+        loading.style.cssText = 'position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.7);z-index:9999;display:flex;justify-content:center;align-items:center;color:white;font-size:1.2rem;';
+        document.body.appendChild(loading);
+    }
+    loading.innerHTML = '<div class="spinner-border me-2" role="status"><span class="visually-hidden">Loading...</span></div>' + message;
+    loading.style.display = 'flex';
+}
+
+function hideLoading() {
+    const loading = document.getElementById('loadingOverlay');
+    if (loading) {
+        loading.style.display = 'none';
+    }
 }
 
 function archiveOldSchedules() {
@@ -158,8 +261,44 @@ function submitAttendanceForm() {
 }
 
 function uploadAttendance() {
-    // TODO: Implement Excel upload
-    alert('Upload attendance functionality not yet implemented');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!confirm(`Upload ${file.name}? This will add attendance records to the database.`)) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        showLoading('Uploading attendance records...');
+
+        fetch('/api/attendances/batch', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success_count || data.error_count) {
+                const msg = `Import completed: ${data.success_count} records imported, ${data.error_count} errors`;
+                alert(msg + (data.errors ? '\n\nErrors:\n' + data.errors.join('\n') : ''));
+            } else {
+                alert('Error: ' + (data.message || data.error || 'Unknown error'));
+            }
+            location.reload();
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error:', error);
+            alert('Error uploading file: ' + error.message);
+        });
+    };
+    input.click();
 }
 
 function archiveOldAttendances() {
@@ -238,8 +377,44 @@ function deleteException(exceptionId) {
 }
 
 function uploadExceptions() {
-    // TODO: Implement Excel upload
-    alert('Batch upload functionality not yet implemented');
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!confirm(`Upload ${file.name}? This will add exception records to the database.`)) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        showLoading('Uploading exception records...');
+
+        fetch('/api/exceptions/batch', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success_count || data.error_count) {
+                const msg = `Import completed: ${data.success_count} records imported, ${data.error_count} errors`;
+                alert(msg + (data.errors ? '\n\nErrors:\n' + data.errors.join('\n') : ''));
+            } else {
+                alert('Error: ' + (data.message || data.error || 'Unknown error'));
+            }
+            location.reload();
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error:', error);
+            alert('Error uploading file: ' + error.message);
+        });
+    };
+    input.click();
 }
 
 // ==================== Admin Option Functions ====================
@@ -339,6 +514,49 @@ function submitReasonForm() {
         console.error('Error:', error);
         alert('Error adding reward reason');
     });
+}
+
+// ==================== Reward Upload Function ====================
+
+function uploadRewards() {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.xlsx,.xls';
+    input.onchange = e => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        if (!confirm(`Upload ${file.name}? This will award points to employees.`)) {
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('file', file);
+
+        showLoading('Uploading reward records...');
+
+        fetch('/api/rewards/award/batch', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            hideLoading();
+            if (data.success_count || data.error_count) {
+                const msg = `Import completed: ${data.success_count} rewards created, ${data.error_count} errors`;
+                alert(msg + (data.errors ? '\n\nErrors:\n' + data.errors.join('\n') : ''));
+            } else {
+                alert('Error: ' + (data.message || data.error || 'Unknown error'));
+            }
+            location.reload();
+        })
+        .catch(error => {
+            hideLoading();
+            console.error('Error:', error);
+            alert('Error uploading file: ' + error.message);
+        });
+    };
+    input.click();
 }
 
 // ==================== API Helper Functions ====================

@@ -226,7 +226,7 @@ class RewardReason(db.Model):
 
 
 class EmployeeReward(db.Model):
-    """Employee reward points tracking."""
+    """Employee reward points tracking - awards only."""
     __tablename__ = 'employee_rewards'
 
     reward_id = db.Column(db.Integer, primary_key=True)
@@ -236,11 +236,16 @@ class EmployeeReward(db.Model):
     date_awarded = db.Column(db.Date, nullable=False)
     notes = db.Column(db.Text)
     awarded_by = db.Column(db.BigInteger, db.ForeignKey('employees.employee_id'))
+    is_spent = db.Column(db.Boolean, default=False)
+    spent_at = db.Column(db.DateTime)
+    spent_by = db.Column(db.BigInteger, db.ForeignKey('employees.employee_id'))
+    spend_reason = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
     reward_reason = db.relationship('RewardReason', backref='rewards')
     awarded_by_user = db.relationship('Employee', foreign_keys=[awarded_by])
+    spent_by_user = db.relationship('Employee', foreign_keys=[spent_by])
 
     def __repr__(self):
         return f'<EmployeeReward {self.reward_id}: {self.employee_id} - {self.points} pts>'
@@ -268,6 +273,29 @@ class ExceptionRecord(db.Model):
 
     def __repr__(self):
         return f'<ExceptionRecord {self.exception_id}: {self.employee_id} - {self.exception_type}>'
+
+
+class EmployeeRewardRedemption(db.Model):
+    """Track when employees spend/redeem their reward points."""
+    __tablename__ = 'employee_reward_redemptions'
+
+    redemption_id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.BigInteger, db.ForeignKey('employees.employee_id'), nullable=False)
+    points_redeemed = db.Column(db.Integer, nullable=False)
+    redemption_date = db.Column(db.DateTime, default=datetime.utcnow)
+    redemption_type = db.Column(db.String(50), nullable=False)  # Gift card, merchandise, donation, etc.
+    redemption_details = db.Column(db.Text)  # Specific item, gift card number, etc.
+    notes = db.Column(db.Text)
+    approved_by = db.Column(db.BigInteger, db.ForeignKey('employees.employee_id'))
+    approved_at = db.Column(db.DateTime)
+    is_approved = db.Column(db.Boolean, default=True)  # Auto-approved by default
+
+    # Relationships
+    employee = db.relationship('Employee', foreign_keys=[employee_id], backref='reward_redemptions')
+    approved_by_user = db.relationship('Employee', foreign_keys=[approved_by])
+
+    def __repr__(self):
+        return f'<EmployeeRewardRedemption {self.redemption_id}: {self.employee_id} - {self.points_redeemed} pts>'
 
 
 class User(UserMixin, db.Model):

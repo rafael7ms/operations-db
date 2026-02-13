@@ -1,0 +1,325 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: opsdb - Operations Department Database API (Serverless)
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+    AllowedValues:
+      - dev
+      - staging
+      - production
+    Description: Environment name for deployment
+
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC ID where the RDS instance is located
+
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnet IDs for Lambda function (should be private subnets)
+
+  SecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+    Description: Security group ID for Lambda function
+
+  DatabaseName:
+    Type: String
+    Default: opsdb
+    Description: Name of the PostgreSQL database
+
+  MasterUsername:
+    Type: String
+    Default: opsdb_admin
+    Description: Master username for the database
+
+  MasterUserPassword:
+    Type: String
+    NoEcho: true
+    Description: Master password for the database
+
+  SecretKey:
+    Type: String
+    NoEcho: true
+    Description: Flask secret key for session encryption
+
+Globals:
+  Function:
+    Timeout: 30
+    Runtime: python3.11
+    Environment:
+      Variables:
+        STAGE: !Ref EnvironmentName
+        LOG_LEVEL: INFO
+
+Resources:
+  # ==================== RDS PostgreSQL Instance ====================
+  OpsdbDatabase:
+    Type: AWS::RDS::DBInstance
+    Properties:
+      DBName: !Ref DatabaseName
+      MasterUsername: !Ref MasterUsername
+      MasterUserPassword: !Ref MasterUserPassword
+      Engine: postgres
+      EngineVersion: '15.4'
+      DBInstanceClass: db.t4g.micro
+      AllocatedStorage: 20
+      StorageType: gp3
+      StorageEncrypted: true
+      VPCSecurityGroups:
+        - !Ref OpsdbSecurityGroup
+      DBSubnetGroupName: !Ref OpsdbSubnetGroup
+      PubliclyAccessible: false
+      AvailabilityZone: !Select [0, !GetAZs '']
+      AutoMinorVersionUpgrade: true
+      BackupRetentionPeriod: 7
+      SkipFinalSnapshot: !Equals [!Ref EnvironmentName, 'dev']
+      FinalDBSnapshotIdentifier: !If
+        - IsProduction
+        - !Sub 'opsdb-final-snapshot-${AWS::StackName}'
+        - !Ref 'AWS::NoValue'
+      Tags:
+        - Key: Name
+          Value: !Sub 'opsdb-${EnvironmentName}'
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  OpsdbSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for opsdb RDS
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - Description: Allow PostgreSQL from Lambda
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref LambdaSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub 'opsdb-rds-sg-${EnvironmentName}'
+
+  # ==================== Lambda Layer for Dependencies ====================
+  OpsdbLambdaLayer:
+    Type: AWS::Serverless::LayerVersion
+    Properties:
+      LayerName: !Sub 'opsdb-requirements-${EnvironmentName}'
+      Description: Python dependencies for opsdb (Flask, Pandas, etc.)
+      ContentUri: ./requirements.txt
+      CompatibleRuntimes:
+        - python3.11
+      RetentionPolicy: Delete
+
+  OpsdbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subnet group for opsdb RDS
+      SubnetIds: !Ref SubnetIds
+      Tags:
+        - Key: Name
+          Value: !Sub 'opsdb-subnet-group-${EnvironmentName}'
+
+  # ==================== Lambda Function ====================
+  OpsdbApiFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: !Sub 'opsdb-api-${EnvironmentName}'
+      Handler: lambda_entrypoint.lambda_handler
+      Runtime: python3.11
+      CodeUri: ../
+      Timeout: 30
+      MemorySize: 512
+      VpcConfig:
+        SubnetIds: !Ref SubnetIds
+        SecurityGroupIds:
+          - !Ref LambdaSecurityGroup
+      Environment:
+        Variables:
+          DATABASE_URL: !Sub 'postgresql://${MasterUsername}:${MasterUserPassword}@${OpsdbDatabase.Endpoint.Address}:${OpsdbDatabase.Endpoint.Port}/${DatabaseName}'
+          SECRET_KEY: !Ref SecretKey
+          DEBUG: 'false'
+          LOG_LEVEL: INFO
+      Layers:
+        - !Ref OpsdbLambdaLayer
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # ==================== Lambda Execution Role ====================
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub 'opsdb-lambda-exec-role-${EnvironmentName}'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/CloudWatchFullAccess
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # ==================== API Gateway (HTTP API) ====================
+  OpsdbHttpApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      Name: !Sub 'opsdb-api-${EnvironmentName}'
+      Description: API Gateway for opsdb
+      StageName: api
+      Tags:
+        Environment: !Ref EnvironmentName
+      AccessLogSettings:
+        DestinationArn: !GetAtt ApiLogsGroup.Arn
+        Format: '{"requestId":"$context.requestId","ip":"$context.identity.sourceIp","requestTime":"$context.requestTime","httpMethod":"$context.httpMethod","path":"$context.path","status":$context.status,"responseLength":$context.responseLength}'
+
+  # ==================== Lambda Permission for API Gateway ====================
+  OpsdbApiPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref OpsdbApiFunction
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub 'arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${OpsdbHttpApi}/*'
+
+  # ==================== CloudWatch Log Group ====================
+  ApiLogsGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${OpsdbApiFunction}'
+      RetentionInDays: 30
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  # ==================== S3 Bucket for Uploads ====================
+  OpsdbUploadsBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'opsdb-uploads-${EnvironmentName}-${AWS::AccountId}'
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+  OpsdbUploadsBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref OpsdbUploadsBucket
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Deny
+            Principal: '*'
+            Action: s3:*
+            Resource:
+              - !Sub '${OpsdbUploadsBucket}/*'
+              - !Ref OpsdbUploadsBucket
+            Condition:
+              Bool:
+                aws:SecureTransport: 'false'
+
+  # ==================== IAM Role for Lambda S3 Access ====================
+  LambdaS3Policy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: !Sub 'opsdb-lambda-s3-policy-${EnvironmentName}'
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:GetObject
+              - s3:DeleteObject
+              - s3:ListBucket
+            Resource:
+              - !Sub '${OpsdbUploadsBucket}'
+              - !Sub '${OpsdbUploadsBucket}/*'
+      Roles:
+        - !Ref LambdaExecutionRole
+
+  # ==================== Lambda Security Group ====================
+  LambdaSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for opsdb Lambda
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - Description: Allow HTTPS outbound
+          FromPort: 443
+          ToPort: 443
+          CidrIp: 0.0.0.0/0
+        - Description: Allow PostgreSQL outbound to RDS
+          FromPort: 5432
+          ToPort: 5432
+          SourceSecurityGroupId: !Ref OpsdbSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub 'opsdb-lambda-sg-${EnvironmentName}'
+
+  # ==================== SNS Topic for Notifications ====================
+  OpsdbNotificationsTopic:
+    Type: AWS::SNS::Topic
+    Properties:
+      TopicName: !Sub 'opsdb-notifications-${EnvironmentName}'
+      Tags:
+        - Key: Environment
+          Value: !Ref EnvironmentName
+
+Outputs:
+  ApiEndpoint:
+    Description: API Gateway endpoint URL
+    Value: !Sub 'https://${OpsdbHttpApi}.execute-api.${AWS::Region}.amazonaws.com/api'
+    Export:
+      Name: !Sub 'opsdb-api-endpoint-${EnvironmentName}'
+
+  DatabaseEndpoint:
+    Description: RDS database endpoint
+    Value: !Sub '${OpsdbDatabase.Endpoint.Address}'
+    Export:
+      Name: !Sub 'opsdb-db-endpoint-${EnvironmentName}'
+
+  DatabaseName:
+    Description: Database name
+    Value: !Ref DatabaseName
+    Export:
+      Name: !Sub 'opsdb-db-name-${EnvironmentName}'
+
+  UploadsBucket:
+    Description: S3 bucket for uploads
+    Value: !Ref OpsdbUploadsBucket
+    Export:
+      Name: !Sub 'opsdb-uploads-bucket-${EnvironmentName}'
+
+  LambdaFunctionArn:
+    Description: Lambda function ARN
+    Value: !GetAtt OpsdbApiFunction.Arn
+    Export:
+      Name: !Sub 'opsdb-lambda-arn-${EnvironmentName}'
+
+  LambdaExecutionRoleArn:
+    Description: Lambda execution role ARN
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: !Sub 'opsdb-lambda-role-arn-${EnvironmentName}'
+
+  SecurityGroupId:
+    Description: Lambda security group ID
+    Value: !Ref LambdaSecurityGroup
+    Export:
+      Name: !Sub 'opsdb-lambda-sg-id-${EnvironmentName}'

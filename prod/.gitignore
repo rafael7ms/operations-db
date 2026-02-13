@@ -1,0 +1,38 @@
+# AWS SAM
+.sam/
+.build/
+output.json
+template.yaml.gotmpl
+
+# AWS Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.auto.tfvars
+
+# Lambda packages
+*.zip
+lambda_build/
+.terraform/lambda.zip
+
+# Environment files with secrets
+*.params.json
+*.tf
+dev.tf
+staging.tf
+production.tf
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

@@ -1,0 +1,15 @@
+# SAM Build Artifacts
+.sam/
+build/
+
+# AWS Credentials
+.aws-credentials
+
+# Environment files with secrets
+*.params.json
+
+# CloudFormation stack data
+*.template
+
+# Lambda package files
+*.zip

@@ -1,5 +1,5 @@
 import pandas as pd
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from app import db
 from app.models import Employee, Schedule, Attendance, ExceptionRecord
 
@@ -69,9 +69,31 @@ def process_employee_upload(file_path):
     return success_count, len(errors), errors
 
 
-def process_schedule_upload(file_path):
+def build_ruex_id_mapping():
+    """
+    Build a mapping from RUEX ID (first letter + last name) to employee Odoo ID.
+    Returns a dict mapping RUEX IDs to employee records.
+    """
+    employees = Employee.query.all()
+    mapping = {}
+    for emp in employees:
+        # Create RUEX ID from first letter of first name + last name (lowercase)
+        ruex_id = (emp.first_name[0] if emp.first_name else '') + emp.last_name
+        ruex_id = ruex_id.lower().strip()
+        mapping[ruex_id] = emp.employee_id
+    return mapping
+
+
+def process_schedule_upload(file_path, employee_file_path=None):
     """
     Process schedule Excel upload and add to database.
+
+    Args:
+        file_path: Path to the schedule Excel file
+        employee_file_path: Optional path to employee Excel file for RUEX ID matching
+
+    Returns:
+        (success_count, error_count, errors_list)
     """
     errors = []
     success_count = 0
@@ -88,19 +110,92 @@ def process_schedule_upload(file_path):
     if missing_cols:
         return 0, 1, [f'Missing required columns: {missing_cols}']
 
+    # Build RUEX ID mapping if employee file is provided
+    ruex_mapping = {}
+    if employee_file_path:
+        try:
+            emp_df = pd.read_excel(employee_file_path)
+            # Build mapping from RUEX ID (first letter + last name) to Odoo ID
+            for idx, row in emp_df.iterrows():
+                first_name = str(row.get('First Name', '')).strip()
+                last_name = str(row.get('Last Name', '')).strip()
+                odoo_id = row.get('Odoo ID')
+
+                if first_name and last_name and pd.notna(odoo_id):
+                    # Create RUEX ID: first letter of first name + last name (lowercase)
+                    ruex_id = (first_name[0] if first_name else '') + last_name
+                    ruex_id = ruex_id.lower()
+                    ruex_mapping[ruex_id] = int(odoo_id)
+        except Exception as e:
+            errors.append(f'Error reading employee file: {str(e)}')
+
     for idx, row in df.iterrows():
         try:
-            employee_id = int(row['Employee - ID'])
-            start_date = row['Date - Nominal Date'].to_pydatetime().date()
+            # The Employee - ID column contains RUEX ID (first letter + last name)
+            # Try to look up the Odoo ID from mapping
+            ruex_id = str(row['Employee - ID']).strip().lower()
+
+            if ruex_id in ruex_mapping:
+                employee_id = ruex_mapping[ruex_id]
+            elif ruex_id.isdigit():
+                # If it's already a number, use it directly
+                employee_id = int(ruex_id)
+            else:
+                # Try to find employee by name if RUEX ID not in mapping
+                # Parse the RUEX ID to extract first letter and last name
+                if len(ruex_id) > 1:
+                    first_letter = ruex_id[0]
+                    last_name = ruex_id[1:]
+                    emp = Employee.query.filter(
+                        Employee.first_name.ilike(f'{first_letter}%'),
+                        Employee.last_name.ilike(f'{last_name}%')
+                    ).first()
+                    if emp:
+                        employee_id = emp.employee_id
+                    else:
+                        errors.append(f'Row {idx + 2}: Could not find employee for RUEX ID {ruex_id}')
+                        continue
+                else:
+                    errors.append(f'Row {idx + 2}: Invalid RUEX ID format {ruex_id}')
+                    continue
+
+            # Parse date - handle both datetime objects and strings
+            date_val = row['Date - Nominal Date']
+            if pd.notna(date_val):
+                if hasattr(date_val, 'to_pydatetime'):
+                    start_date = date_val.to_pydatetime().date()
+                else:
+                    # Handle string dates
+                    start_date = pd.to_datetime(str(date_val)).date()
+            else:
+                start_date = None
 
             # Parse time - some may be empty (OFF day)
             start_time = None
             if pd.notna(row['Earliest - Start']):
-                start_time = row['Earliest - Start'].to_pydatetime().time()
+                time_val = row['Earliest - Start']
+                if hasattr(time_val, 'to_pydatetime'):
+                    start_time = time_val.to_pydatetime().time()
+                else:
+                    # Handle string times
+                    time_str = str(time_val)
+                    if ':' in time_str:
+                        parts = time_str.split(':')
+                        if len(parts) >= 2:
+                            start_time = time(int(parts[0]), int(parts[1]))
 
             stop_time = None
             if pd.notna(row['Latest - Stop']):
-                stop_time = row['Latest - Stop'].to_pydatetime().time()
+                time_val = row['Latest - Stop']
+                if hasattr(time_val, 'to_pydatetime'):
+                    stop_time = time_val.to_pydatetime().time()
+                else:
+                    # Handle string times
+                    time_str = str(time_val)
+                    if ':' in time_str:
+                        parts = time_str.split(':')
+                        if len(parts) >= 2:
+                            stop_time = time(int(parts[0]), int(parts[1]))
 
             # Handle overnight shifts - determine stop date
             stop_date = start_date

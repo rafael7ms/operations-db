@@ -1,0 +1,26 @@
+# Terraform state file - DO NOT COMMIT
+*.tfstate
+*.tfstate.*
+*.tfstate.backup
+
+# Terraform local files
+.terraform/
+.terraform.lock.hcl
+
+# Lambda package files
+.lambda.zip
+*.zip
+
+# Environment files with secrets
+*.tfvars
+*.auto.tfvars
+
+# IDE files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS files
+.DS_Store
+Thumbs.db
