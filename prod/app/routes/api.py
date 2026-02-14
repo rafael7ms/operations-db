@@ -64,7 +64,8 @@ def get_employee(employee_id):
         'phase_2_date': str(employee.phase_2_date) if employee.phase_2_date else None,
         'phase_3_date': str(employee.phase_3_date) if employee.phase_3_date else None,
         'status': employee.status,
-        'attrition_date': str(employee.attrition_date) if employee.attrition_date else None
+        'attrition_date': str(employee.attrition_date) if employee.attrition_date else None,
+        'point_balance': employee.point_balance or 0
     })
 
 
@@ -439,7 +440,14 @@ def get_employee_rewards(employee_id):
 @bp.route('/rewards/award', methods=['POST'])
 def award_points():
     """Award points to employee."""
+    from app.models import Employee, EmployeeReward
+
     data = request.get_json()
+
+    # Validate employee exists
+    employee = Employee.query.get(data['employee_id'])
+    if not employee:
+        raise APIError('Employee not found', 404)
 
     reward = EmployeeReward(
         employee_id=data['employee_id'],
@@ -450,9 +458,16 @@ def award_points():
         awarded_by=data.get('awarded_by')
     )
 
+    # Update employee's point balance
+    employee.point_balance = (employee.point_balance or 0) + data['points']
+
     db.session.add(reward)
     db.session.commit()
-    return jsonify({'message': 'Points awarded', 'reward_id': reward.reward_id}), 201
+    return jsonify({
+        'message': 'Points awarded',
+        'reward_id': reward.reward_id,
+        'new_balance': employee.point_balance
+    }), 201
 
 
 # ==================== BATCH ENDPOINTS ====================
@@ -710,6 +725,11 @@ def award_points_batch():
                 else:
                     award_date = award_date.to_pydatetime().date()
 
+                # Update employee's point balance
+                employee = Employee.query.get(employee_id)
+                if employee:
+                    employee.point_balance = (employee.point_balance or 0) + points
+
                 # Create reward
                 reward = EmployeeReward(
                     employee_id=employee_id,
@@ -739,3 +759,56 @@ def award_points_batch():
     except Exception as e:
         db.session.rollback()
         raise APIError(f'Error processing file: {str(e)}', 500)
+
+
+# ==================== REWARD BALANCE ENDPOINTS ====================
+
+@bp.route('/rewards/employee/<int:employee_id>/balance', methods=['GET'])
+def get_employee_balance(employee_id):
+    """Get employee's current point balance."""
+    from app.models import Employee
+
+    employee = Employee.query.get_or_404(employee_id)
+    return jsonify({
+        'employee_id': employee.employee_id,
+        'employee_name': employee.full_name,
+        'point_balance': employee.point_balance or 0
+    })
+
+
+@bp.route('/rewards/redemptions', methods=['POST'])
+def create_redemption():
+    """Redeem points for an employee."""
+    from app.models import Employee, EmployeeRewardRedemption
+
+    data = request.get_json()
+
+    employee = Employee.query.get_or_404(data['employee_id'])
+
+    # Check sufficient balance
+    current_balance = employee.point_balance or 0
+    if data['points_redeemed'] > current_balance:
+        raise APIError(f'Insufficient points. Current balance: {current_balance}', 400)
+
+    redemption = EmployeeRewardRedemption(
+        employee_id=data['employee_id'],
+        points_redeemed=data['points_redeemed'],
+        redemption_type=data['redemption_type'],
+        redemption_details=data.get('redemption_details'),
+        notes=data.get('notes'),
+        approved_by=data.get('approved_by')
+    )
+
+    # Update employee's point balance
+    employee.point_balance = current_balance - data['points_redeemed']
+
+    db.session.add(redemption)
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Points redeemed successfully',
+        'redemption_id': redemption.redemption_id,
+        'points_redeemed': data['points_redeemed'],
+        'remaining_balance': employee.point_balance
+    }), 201
+

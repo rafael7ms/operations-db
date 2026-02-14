@@ -50,6 +50,7 @@ class Employee(db.Model):
     phase_3_date = db.Column(db.Date)
     status = db.Column(db.String(20), nullable=False, default='Active')
     attrition_date = db.Column(db.Date)
+    point_balance = db.Column(db.Integer, default=0)  # Current available points balance
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
