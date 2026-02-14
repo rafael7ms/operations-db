@@ -1,3 +1,4 @@
+from datetime import datetime
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from app import db
 from app.models import Employee, Schedule, AdminOptions, ExceptionRecord, User, RewardReason, EmployeeReward, Attendance, DBUser
@@ -153,6 +154,10 @@ def add_employee():
     token_serial = request.form.get('token_serial')
     building_card = request.form.get('building_card')
 
+    # Parse dates
+    hire_date_str = request.form.get('hire_date')
+    hire_date = datetime.strptime(hire_date_str, '%Y-%m-%d').date() if hire_date_str else None
+
     # Auto-generate employee_id from email domain
     import hashlib
     employee_id = int(hashlib.md5(company_email.encode()).hexdigest()[:8], 16)
@@ -169,6 +174,7 @@ def add_employee():
         shift=shift,
         department=department,
         role=role,
+        hire_date=hire_date,
         tier=int(tier) if tier else None,
         ruex_id=ruex_id or None,
         axonify_id=axonify_id or None,
@@ -203,7 +209,14 @@ def edit_employee(employee_id):
         emp.role = request.form.get('role')
         emp.tier = request.form.get('tier')
         emp.status = request.form.get('status')
-        emp.attrition_date = request.form.get('attrition_date') or None
+
+        # Parse attrition_date - convert string to date object
+        attrition_date_str = request.form.get('attrition_date')
+        if attrition_date_str:
+            emp.attrition_date = datetime.strptime(attrition_date_str, '%Y-%m-%d').date()
+        else:
+            emp.attrition_date = None
+
         emp.ruex_id = request.form.get('ruex_id') or None
         emp.axonify_id = request.form.get('axonify_id') or None
         emp.agent_id = request.form.get('agent_id') or None
