@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from app import db
 from app.models import Employee, Schedule, AdminOptions, ExceptionRecord, User, RewardReason, EmployeeReward, Attendance, DBUser
@@ -246,7 +246,7 @@ def delete_employee(employee_id):
 @bp.route('/schedules', methods=['GET', 'POST'])
 @login_required
 def schedules():
-    """Schedule management."""
+    """Schedule management - list and add."""
     if request.method == 'POST':
         # Handle schedule import
         if 'file' in request.files:
@@ -306,9 +306,82 @@ def schedules():
 
         return redirect(url_for('main.schedules'))
 
-    schedules_list = Schedule.query.all()
+    # Get query parameters for filtering
+    view = request.args.get('view', 'table')  # 'table' or 'calendar'
+    employee_id = request.args.get('employee_id', type=int)
+    supervisor = request.args.get('supervisor')
+    manager = request.args.get('manager')
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+
+    # Get all employees for filters
+    employees = Employee.query.all()
+
+    # Get unique supervisors and managers
+    supervisors = db.session.query(Employee.supervisor).distinct().filter(Employee.supervisor != '').all()
+    managers = db.session.query(Employee.manager).distinct().filter(Employee.manager != '').all()
+
+    schedules_query = Schedule.query
+
+    # Apply filters
+    if employee_id:
+        schedules_query = schedules_query.filter(Schedule.employee_id == employee_id)
+    if supervisor:
+        schedules_query = schedules_query.join(Employee).filter(Employee.supervisor == supervisor)
+    if manager:
+        schedules_query = schedules_query.join(Employee).filter(Employee.manager == manager)
+
+    # Date range filter
+    if start_date:
+        try:
+            start_dt = datetime.strptime(start_date, '%Y-%m-%d').date()
+            schedules_query = schedules_query.filter(Schedule.start_date >= start_dt)
+        except ValueError:
+            pass
+    if end_date:
+        try:
+            end_dt = datetime.strptime(end_date, '%Y-%m-%d').date()
+            schedules_query = schedules_query.filter(Schedule.start_date <= end_dt)
+        except ValueError:
+            pass
+
+    schedules_list = schedules_query.order_by(Schedule.start_date, Schedule.employee_id).all()
+
+    # If no date range, get schedules for the next 3 weeks by default
+    today = datetime.utcnow().date()
+    if not start_date and not end_date:
+        three_weeks = today + timedelta(days=21)
+        schedules_list = Schedule.query.filter(
+            Schedule.start_date >= today,
+            Schedule.start_date <= three_weeks
+        ).order_by(Schedule.start_date, Schedule.employee_id).all()
+
+    # Generate date range for table view
+    if schedules_list:
+        min_date = min(s.start_date for s in schedules_list)
+        max_date = max(s.start_date for s in schedules_list)
+        date_range_days = (max_date - min_date).days + 1
+        date_range = [min_date + timedelta(days=i) for i in range(date_range_days)]
+    else:
+        # Default: next 21 days
+        date_range = [today + timedelta(days=i) for i in range(21)]
+
     work_codes = AdminOptions.query.filter_by(category='work_code', is_active=True).all()
-    return render_template('schedules.html', schedules=schedules_list, work_codes=work_codes)
+
+    return render_template('schedules.html',
+                         schedules=schedules_list,
+                         work_codes=work_codes,
+                         view=view,
+                         employees=employees,
+                         supervisors=supervisors,
+                         managers=managers,
+                         selected_employee_id=employee_id,
+                         selected_supervisor=supervisor,
+                         selected_manager=manager,
+                         start_date=start_date,
+                         end_date=end_date,
+                         today=today,
+                         date_range=date_range)
 
 
 @bp.route('/attendance', methods=['GET', 'POST'])

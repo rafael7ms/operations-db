@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weekly Attendance Report</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .status-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.2rem;
+            font-size: 0.75rem;
+            font-weight: bold;
+        }
+        .status-present { background-color: #198754; color: white; }
+        .status-late { background-color: #ffc107; color: black; }
+        .status-absent { background-color: #dc3545; color: white; }
+        .status-not-marked { background-color: #6c757d; color: white; }
+        .date-header {
+            background-color: #f8f9fa;
+            border-bottom: 2px solid #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Operations DB</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/employees">Employees</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/schedules">Schedules</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/attendance/attendance">Daily Attendance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/attendance/report/daily">Daily Report</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/attendance/report/weekly">Weekly Report</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/attendance/report/monthly">Monthly Report</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1>Weekly Attendance Report</h1>
+                <p class="text-muted">
+                    {{ start_date.strftime('%Y-%m-%d') }} to {{ end_date.strftime('%Y-%m-%d') }}
+                </p>
+            </div>
+            <div>
+                <a href="/attendance/attendance" class="btn btn-primary">
+                    <i class="bi bi-arrow-left"></i> Back to Daily Attendance
+                </a>
+            </div>
+        </div>
+
+        <!-- Summary Cards -->
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card bg-success text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Present</h5>
+                        <p class="display-6">{{ attendances|length - absent }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-warning text-dark">
+                    <div class="card-body">
+                        <h5 class="card-title">Late</h5>
+                        <p class="display-6">{{ late }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-danger text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Absent</h5>
+                        <p class="display-6">{{ absent }}</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-3">
+                <div class="card bg-secondary text-white">
+                    <div class="card-body">
+                        <h5 class="card-title">Total Scheduled</h5>
+                        <p class="display-6">{{ total_scheduled }}</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Weekly Stats Table -->
+        <div class="card mb-4">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Weekly Statistics</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-striped table-hover">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Day</th>
+                                <th>Present</th>
+                                <th>Late</th>
+                                <th>Absent</th>
+                                <th>Scheduled</th>
+                                <th>Attendance Rate</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for date, stats in daily_stats.items() %}
+                            <tr>
+                                <td>{{ date }}</td>
+                                <td>{{ datetime.strptime(date, '%Y-%m-%d').strftime('%A') }}</td>
+                                <td>{{ stats.present }}</td>
+                                <td>{{ stats.late }}</td>
+                                <td>{{ stats.absent }}</td>
+                                <td>{{ stats.total_scheduled }}</td>
+                                <td>
+                                    {% if stats.total_scheduled > 0 %}
+                                    {{ (stats.present / stats.total_scheduled * 100)|round(1) }}%
+                                    {% else %}
+                                    N/A
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Daily Details -->
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h5 class="mb-0">Daily Attendance Details</h5>
+            </div>
+            <div class="card-body">
+                {% for date, stats in daily_stats.items() %}
+                <div class="mb-4">
+                    <h6 class="text-muted">{{ date }} - {{ datetime.strptime(date, '%Y-%m-%d').strftime('%A') }}</h6>
+                    {% set day_attendances = [a for a in attendances if a.date.strftime('%Y-%m-%d') == date] %}
+                    {% if day_attendances %}
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-sm">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>Employee ID</th>
+                                    <th>Department</th>
+                                    <th>Role</th>
+                                    <th>Shift</th>
+                                    <th>Status</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for att in day_attendances %}
+                                <tr>
+                                    <td>{{ att.employee.full_name }}</td>
+                                    <td>{{ att.employee.employee_id }}</td>
+                                    <td>{{ att.employee.department }}</td>
+                                    <td>{{ att.employee.role }}</td>
+                                    <td>
+                                        {% set sched = att.employee.schedules|selectattr('start_date.strftime', 'equalto', date)|first %}
+                                        {% if sched and sched.start_time %}
+                                        {{ sched.start_time.strftime('%I:%M %p') }} - {{ sched.stop_time.strftime('%I:%M %p') if sched.stop_time else '' }}
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if att.exception_type == 'Absent' or att.exception_type == 'Leave' %}
+                                        <span class="status-badge status-absent">Absent</span>
+                                        {% elif att.late_minutes and att.late_minutes > 0 %}
+                                        <span class="status-badge status-late">Late ({{ att.late_minutes }} min)</span>
+                                        {% else %}
+                                        <span class="status-badge status-present">Present</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ att.notes or '-' }}</td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    {% else %}
+                    <div class="alert alert-info">No attendance records for this date</div>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>

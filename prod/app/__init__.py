@@ -26,4 +26,8 @@ def create_app(config_name='default'):
     app.register_blueprint(main_bp)
     app.register_blueprint(api_bp, url_prefix='/api')
 
+    # Register attendance tracker blueprint
+    from app.modules.attendance_tracker import attendance_bp
+    app.register_blueprint(attendance_bp, url_prefix='/attendance')
+
     return app

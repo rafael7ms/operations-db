@@ -146,6 +146,7 @@ class Attendance(db.Model):
     check_in = db.Column(db.Time, nullable=False)
     check_out = db.Column(db.Time)
     exception_type = db.Column(db.String(50))
+    late_minutes = db.Column(db.Integer, default=0)  # Minutes late if arrival is late
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 

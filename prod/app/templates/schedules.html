@@ -5,7 +5,76 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Operations DB - Schedules</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .schedule-table-container {
+            overflow-x: auto;
+        }
+        .schedule-cell {
+            min-width: 100px;
+            padding: 8px;
+            border: 1px solid #dee2e6;
+            vertical-align: top;
+        }
+        .schedule-cell:hover {
+            background-color: #f8f9fa;
+        }
+        .schedule-card {
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .schedule-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        .schedule-time {
+            font-size: 0.85rem;
+            color: #6c757d;
+        }
+        .view-tabs {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 10px 20px;
+            margin-bottom: 20px;
+        }
+        .filter-bar {
+            background: #e9ecef;
+            border-radius: 8px;
+            padding: 15px;
+            margin-bottom: 20px;
+        }
+        .calendar-view {
+            padding: 20px;
+        }
+        .calendar-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        .calendar-day {
+            border: 1px solid #dee2e6;
+            border-radius: 4px;
+            min-height: 150px;
+            padding: 10px;
+            margin-bottom: 10px;
+        }
+        .calendar-day.today {
+            border-color: #0d6efd;
+            background-color: #e7f1ff;
+        }
+        .shift-group {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-left: 4px solid #0d6efd;
+            background: #f8f9fa;
+        }
+        .shift-time {
+            font-weight: bold;
+            color: #0d6efd;
+        }
+    </style>
 </head>
 <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
@@ -23,10 +92,10 @@
                         <a class="nav-link" href="/employees">Employees</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/schedules">Schedules</a>
+                        <a class="nav-link active" href="/schedules">Schedules</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/attendance">Attendance</a>
+                        <a class="nav-link" href="/attendance/attendance">Daily Attendance</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/exceptions">Exceptions</a>
@@ -38,54 +107,226 @@
 
     <div class="container mt-4">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h1>Schedule Management</h1>
+            <div>
+                <h1>Schedule Management</h1>
+                <p class="text-muted">View and manage employee schedules</p>
+            </div>
             <div>
                 <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addScheduleModal">
-                    + Add Schedule
+                    <i class="fas fa-plus"></i> Add Schedule
                 </button>
                 <button class="btn btn-secondary" onclick="uploadSchedules()">
-                    Upload Excel
-                </button>
-                <button class="btn btn-warning" onclick="archiveOldSchedules()">
-                    Archive Old
+                    <i class="fas fa-upload"></i> Upload Excel
                 </button>
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table table-striped table-hover" id="schedulesTable">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Employee</th>
-                                <th>Start Date</th>
-                                <th>Start Time</th>
-                                <th>Stop Date</th>
-                                <th>Stop Time</th>
-                                <th>Work Code</th>
-                                <th>Actions</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for schedule in schedules %}
-                            <tr>
-                                <td>{{ schedule.schedule_id }}</td>
-                                <td>{{ schedule.employee.full_name }}</td>
-                                <td>{{ schedule.start_date }}</td>
-                                <td>{{ schedule.start_time }}</td>
-                                <td>{{ schedule.stop_date }}</td>
-                                <td>{{ schedule.stop_time }}</td>
-                                <td>{{ schedule.work_code or 'N/A' }}</td>
-                                <td>
-                                    <button class="btn btn-sm btn-outline-primary" onclick="editSchedule({{ schedule.schedule_id }})">Edit</button>
-                                    <button class="btn btn-sm btn-outline-danger" onclick="deleteSchedule({{ schedule.schedule_id }})">Delete</button>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+        <!-- View Tabs -->
+        <div class="view-tabs">
+            <ul class="nav nav-tabs" id="viewTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="table-tab" onclick="switchView('table')" data-bs-toggle="tab" data-target="#table-view">
+                        <i class="fas fa-table"></i> Table View
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="calendar-tab" onclick="switchView('calendar')" data-bs-toggle="tab" data-target="#calendar-view">
+                        <i class="fas fa-calendar-alt"></i> Calendar View
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Filter Bar -->
+        <div class="filter-bar">
+            <div class="row g-2 align-items-end">
+                <div class="col-md-3">
+                    <label class="form-label">View By</label>
+                    <select class="form-select" id="viewBy" onchange="updateFilters()">
+                        <option value="">All Employees</option>
+                        <option value="employee">Single Employee</option>
+                        <option value="supervisor">By Supervisor</option>
+                        <option value="manager">By Manager</option>
+                    </select>
+                </div>
+                <div class="col-md-3" id="employeeFilter" style="display: none;">
+                    <label class="form-label">Employee</label>
+                    <select class="form-select" id="employeeSelect" onchange="updateFilters()">
+                        <option value="">Select Employee</option>
+                        {% for emp in employees %}
+                        <option value="{{ emp.employee_id }}" {% if selected_employee_id == emp.employee_id %}selected{% endif %}>{{ emp.full_name }} ({{ emp.employee_id }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3" id="supervisorFilter" style="display: none;">
+                    <label class="form-label">Supervisor</label>
+                    <select class="form-select" id="supervisorSelect" onchange="updateFilters()">
+                        <option value="">Select Supervisor</option>
+                        {% for sup in supervisors %}
+                        <option value="{{ sup[0] }}" {% if selected_supervisor == sup[0] %}selected{% endif %}>{{ sup[0] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-3" id="managerFilter" style="display: none;">
+                    <label class="form-label">Manager</label>
+                    <select class="form-select" id="managerSelect" onchange="updateFilters()">
+                        <option value="">Select Manager</option>
+                        {% for mgr in managers %}
+                        <option value="{{ mgr[0] }}" {% if selected_manager == mgr[0] %}selected{% endif %}>{{ mgr[0] }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">Start Date</label>
+                    <input type="date" class="form-control" id="startDate" value="{{ start_date or '' }}" onchange="updateFilters()">
+                </div>
+                <div class="col-md-2">
+                    <label class="form-label">End Date</label>
+                    <input type="date" class="form-control" id="endDate" value="{{ end_date or '' }}" onchange="updateFilters()">
+                </div>
+                <div class="col-md-2">
+                    <button class="btn btn-outline-primary w-100" onclick="resetFilters()">
+                        <i class="fas fa-undo"></i> Reset
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Table View -->
+        <div class="tab-content" id="viewTabsContent">
+            <div class="tab-pane fade show active" id="table-view">
+                <div class="card">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">Schedule Table</h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="schedule-table-container">
+                            <table class="table table-striped table-hover" id="schedulesTable">
+                                <thead>
+                                    <tr>
+                                        <th style="min-width: 150px;">Employee</th>
+                                        <th style="min-width: 100px;">Employee ID</th>
+                                        <th style="min-width: 100px;">Department</th>
+                                        <th style="min-width: 100px;">Shift</th>
+                                        {% for date in date_range %}
+                                        <th class="text-center" style="min-width: 80px;">{{ date.strftime('%a %m/%d') }}</th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for schedule in schedules %}
+                                    {% set emp = schedule.employee %}
+                                    {% if loop.first or schedule.employee_id != schedules[loop.index0 - 1].employee_id %}
+                                    {% if not loop.first %}
+                                    </tbody>
+                                    </table>
+                                    </div>
+                                    </div>
+                                    {% endif %}
+                                    <div class="card mb-3">
+                                        <div class="card-header bg-secondary text-white">
+                                            <h6 class="mb-0">{{ emp.full_name }}</h6>
+                                            <small>{{ emp.employee_id }} | {{ emp.department }} | {{ emp.shift }}</small>
+                                        </div>
+                                        <div class="card-body p-0">
+                                            <table class="table table-sm table-bordered">
+                                                <thead class="table-light">
+                                                    <tr>
+                                                        <th>Date</th>
+                                                        <th>Start Time</th>
+                                                        <th>Stop Time</th>
+                                                        <th>Work Code</th>
+                                                        <th>Actions</th>
+                                                    </tr>
+                                                </thead>
+                                                <tbody>
+                                    {% endif %}
+                                    <tr>
+                                        <td>{{ schedule.start_date }}</td>
+                                        <td>{{ schedule.start_time or '-' }}</td>
+                                        <td>{{ schedule.stop_time or '-' }}</td>
+                                        <td>{{ schedule.work_code or '-' }}</td>
+                                        <td>
+                                            <button class="btn btn-sm btn-outline-primary" onclick="editSchedule({{ schedule.schedule_id }})">Edit</button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deleteSchedule({{ schedule.schedule_id }})">Delete</button>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                        {% if not schedules %}
+                        <div class="alert alert-info">No schedules found for the selected criteria</div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Calendar View -->
+            <div class="tab-pane fade" id="calendar-view">
+                <div class="calendar-view">
+                    <div class="calendar-header">
+                        <h4 id="calendarMonthYear">Scheduled Schedules</h4>
+                        <div>
+                            <button class="btn btn-outline-primary" onclick="changeCalendarMonth(-1)"><i class="fas fa-chevron-left"></i></button>
+                            <button class="btn btn-outline-primary" onclick="changeCalendarMonth(0)">Today</button>
+                            <button class="btn btn-outline-primary" onclick="changeCalendarMonth(1)"><i class="fas fa-chevron-right"></i></button>
+                        </div>
+                    </div>
+
+                    <!-- Weekly view by default -->
+                    <div id="calendarWeek">
+                        {% if schedules %}
+                        {% set dates = schedules|map(attribute='start_date')|unique|sort %}
+                        {% set unique_dates = [] %}
+                        {% for d in dates %}
+                            {% if unique_dates|length < 21 %}
+                                {% set _ = unique_dates.append(d) %}
+                            {% endif %}
+                        {% endfor %}
+
+                        {% for date in unique_dates %}
+                        <div class="row mb-2">
+                            <div class="col-2">
+                                <div class="calendar-day {% if date == today %}today{% endif %}">
+                                    <div class="fw-bold">{{ date.strftime('%a %m/%d') }}</div>
+                                    {% if date == today %}<span class="badge bg-primary">Today</span>{% endif %}
+                                </div>
+                            </div>
+                            <div class="col-10">
+                                {% for schedule in schedules if schedule.start_date == date %}
+                                <div class="schedule-card card mb-2">
+                                    <div class="card-body">
+                                        <div class="d-flex justify-content-between">
+                                            <div>
+                                                <h6 class="mb-1">{{ schedule.employee.full_name }}</h6>
+                                                <div class="schedule-time">
+                                                    <i class="fas fa-clock"></i>
+                                                    {% if schedule.start_time %}{{ schedule.start_time.strftime('%I:%M %p') }}{% else %}-{% endif %}
+                                                    -
+                                                    {% if schedule.stop_time %}{{ schedule.stop_time.strftime('%I:%M %p') }}{% else %}-{% endif %}
+                                                </div>
+                                                <small class="text-muted">{{ schedule.employee.department }} | {{ schedule.employee.shift }}</small>
+                                                {% if schedule.work_code %}
+                                                <br><span class="badge bg-secondary">{{ schedule.work_code }}</span>
+                                                {% endif %}
+                                            </div>
+                                            <div>
+                                                <button class="btn btn-sm btn-outline-primary" onclick="editSchedule({{ schedule.schedule_id }})">Edit</button>
+                                                <button class="btn btn-sm btn-outline-danger" onclick="deleteSchedule({{ schedule.schedule_id }})">Delete</button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% endfor %}
+                        {% else %}
+                        <div class="alert alert-info">No schedules found for the selected criteria</div>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         </div>
@@ -102,8 +343,13 @@
                 <div class="modal-body">
                     <form id="addScheduleForm">
                         <div class="mb-3">
-                            <label class="form-label">Employee ID</label>
-                            <input type="number" class="form-control" name="employee_id" required>
+                            <label class="form-label">Employee</label>
+                            <select class="form-select" name="employee_id" required>
+                                <option value="">Select Employee</option>
+                                {% for emp in employees %}
+                                <option value="{{ emp.employee_id }}">{{ emp.full_name }} ({{ emp.employee_id }})</option>
+                                {% endfor %}
+                            </select>
                         </div>
                         <div class="row">
                             <div class="col-md-6 mb-3">
@@ -129,11 +375,9 @@
                             <label class="form-label">Work Code</label>
                             <select class="form-select" name="work_code">
                                 <option value="">Select...</option>
-                                <option value="Regular">Regular</option>
-                                <option value="Training">Training</option>
-                                <option value="Nesting">Nesting</option>
-                                <option value="Meeting">Meeting</option>
-                                <option value="New Hire Training">New Hire Training</option>
+                                {% for code in work_codes %}
+                                <option value="{{ code.value }}">{{ code.value }}</option>
+                                {% endfor %}
                             </select>
                         </div>
                     </form>
@@ -148,5 +392,130 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+    <script>
+        // View switching
+        function switchView(view) {
+            if (view === 'table') {
+                document.getElementById('table-tab').classList.add('active');
+                document.getElementById('calendar-tab').classList.remove('active');
+                document.getElementById('table-view').classList.add('show', 'active');
+                document.getElementById('calendar-view').classList.remove('show', 'active');
+            } else {
+                document.getElementById('calendar-tab').classList.add('active');
+                document.getElementById('table-tab').classList.remove('active');
+                document.getElementById('calendar-view').classList.add('show', 'active');
+                document.getElementById('table-view').classList.remove('show', 'active');
+            }
+        }
+
+        // Filter controls
+        function updateFilters() {
+            const viewBy = document.getElementById('viewBy').value;
+            const employeeId = document.getElementById('employeeSelect').value;
+            const supervisor = document.getElementById('supervisorSelect').value;
+            const manager = document.getElementById('managerSelect').value;
+            const startDate = document.getElementById('startDate').value;
+            const endDate = document.getElementById('endDate').value;
+
+            let params = new URLSearchParams(window.location.search);
+
+            if (viewBy) params.set('view_by', viewBy);
+            else params.delete('view_by');
+
+            if (employeeId) params.set('employee_id', employeeId);
+            else params.delete('employee_id');
+
+            if (supervisor) params.set('supervisor', supervisor);
+            else params.delete('supervisor');
+
+            if (manager) params.set('manager', manager);
+            else params.delete('manager');
+
+            if (startDate) params.set('start_date', startDate);
+            else params.delete('start_date');
+
+            if (endDate) params.set('end_date', endDate);
+            else params.delete('end_date');
+
+            window.location.href = '/schedules?' + params.toString();
+        }
+
+        function resetFilters() {
+            window.location.href = '/schedules';
+        }
+
+        // Toggle filter visibility
+        document.getElementById('viewBy').addEventListener('change', function() {
+            document.getElementById('employeeFilter').style.display = 'none';
+            document.getElementById('supervisorFilter').style.display = 'none';
+            document.getElementById('managerFilter').style.display = 'none';
+
+            if (this.value === 'employee') {
+                document.getElementById('employeeFilter').style.display = 'block';
+            } else if (this.value === 'supervisor') {
+                document.getElementById('supervisorFilter').style.display = 'block';
+            } else if (this.value === 'manager') {
+                document.getElementById('managerFilter').style.display = 'block';
+            }
+        });
+
+        // Calendar navigation
+        function changeCalendarMonth(direction) {
+            // Implementation for calendar navigation
+            console.log('Change month:', direction);
+        }
+
+        // Upload and schedule functions from script.js
+        function uploadSchedules() {
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.enctype = 'multipart/form-data';
+
+            const fileInput = document.createElement('input');
+            fileInput.type = 'file';
+            fileInput.name = 'file';
+            fileInput.accept = '.xlsx,.xls';
+
+            form.appendChild(fileInput);
+            document.body.appendChild(form);
+            form.submit();
+        }
+
+        function editSchedule(scheduleId) {
+            // Implement edit functionality
+            alert('Edit schedule: ' + scheduleId);
+        }
+
+        function deleteSchedule(scheduleId) {
+            if (confirm('Are you sure you want to delete this schedule?')) {
+                // Implement delete functionality
+                console.log('Delete schedule:', scheduleId);
+            }
+        }
+
+        function submitScheduleForm() {
+            const form = document.getElementById('addScheduleForm');
+            const formData = new FormData(form);
+
+            fetch('/schedules', {
+                method: 'POST',
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('Schedule added successfully!');
+                    $('#addScheduleModal').modal('hide');
+                    location.reload();
+                } else {
+                    alert('Error: ' + (data.error || 'Failed to add schedule'));
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error adding schedule');
+            });
+        }
+    </script>
 </body>
 </html>
