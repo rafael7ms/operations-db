@@ -15,7 +15,7 @@ Usage in another project:
    app.register_blueprint(attendance_bp, url_prefix='/attendance')
 """
 
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 from flask import Blueprint, render_template, request, jsonify
 from app import db
 from app.models import Employee, Schedule, Attendance, LeaveRequest, ExceptionRecord
@@ -114,8 +114,11 @@ def mark_attendance():
 
     employee_id = data.get('employee_id')
     date_str = data.get('date', datetime.utcnow().strftime('%Y-%m-%d'))
-    status = data.get('status')  # 'present', 'late', 'absent', 'on_leave'
+    status = data.get('status')  # 'present', 'late', 'absent', 'early_leave', 'overtime', 'cover_up', 'on_leave'
     late_minutes = data.get('late_minutes', 0)
+    early_leave_time = data.get('early_leave_time')  # Format: "HH:MM"
+    overtime_minutes = data.get('overtime_minutes', 0)
+    cover_up_for_id = data.get('cover_up_for_employee_id')
     notes = data.get('notes', '')
 
     try:
@@ -123,13 +126,22 @@ def mark_attendance():
     except ValueError:
         return jsonify({'error': 'Invalid date format'}), 400
 
+    # Parse early leave time if provided
+    early_leave = None
+    if early_leave_time:
+        try:
+            parts = early_leave_time.split(':')
+            early_leave = time(int(parts[0]), int(parts[1]))
+        except (ValueError, IndexError):
+            return jsonify({'error': 'Invalid early leave time format'}), 400
+
     # Check if employee is scheduled for this date
     schedule = Schedule.query.filter_by(
         employee_id=employee_id,
         start_date=date
     ).first()
 
-    if not schedule and status != 'on_leave':
+    if not schedule and status not in ['on_leave', 'cover_up']:
         # Check if on leave/exception
         exception = ExceptionRecord.query.filter(
             ExceptionRecord.employee_id == employee_id,
@@ -152,6 +164,9 @@ def mark_attendance():
         if status == 'present':
             attendance.exception_type = None
             attendance.late_minutes = 0
+            attendance.early_leave = None
+            attendance.overtime_minutes = 0
+            attendance.cover_up_for_employee_id = None
             attendance.notes = notes
         elif status == 'late':
             attendance.exception_type = 'Late'
@@ -160,6 +175,18 @@ def mark_attendance():
         elif status == 'absent':
             attendance.exception_type = 'Absent'
             attendance.late_minutes = None
+            attendance.notes = notes
+        elif status == 'early_leave':
+            attendance.exception_type = 'Early Leave'
+            attendance.early_leave = early_leave
+            attendance.notes = notes
+        elif status == 'overtime':
+            attendance.exception_type = 'Overtime'
+            attendance.overtime_minutes = overtime_minutes
+            attendance.notes = notes
+        elif status == 'cover_up':
+            attendance.exception_type = 'Cover Up'
+            attendance.cover_up_for_employee_id = cover_up_for_id
             attendance.notes = notes
         elif status == 'on_leave':
             attendance.exception_type = 'Leave'
@@ -172,8 +199,14 @@ def mark_attendance():
             date=date,
             exception_type='Absent' if status == 'absent' else
                         'Late' if status == 'late' else
+                        'Early Leave' if status == 'early_leave' else
+                        'Overtime' if status == 'overtime' else
+                        'Cover Up' if status == 'cover_up' else
                         'Leave' if status == 'on_leave' else None,
             late_minutes=late_minutes if status == 'late' else None,
+            early_leave=early_leave if status == 'early_leave' else None,
+            overtime_minutes=overtime_minutes if status == 'overtime' else None,
+            cover_up_for_employee_id=cover_up_for_id if status == 'cover_up' else None,
             notes=notes
         )
         db.session.add(attendance)

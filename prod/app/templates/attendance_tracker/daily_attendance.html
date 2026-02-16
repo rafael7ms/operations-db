@@ -133,6 +133,9 @@
                                         <button type="button" class="btn btn-success btn-sm mark-present" data-emp-id="{{ schedule.employee.employee_id }}">Present</button>
                                         <button type="button" class="btn btn-warning btn-sm mark-late" data-emp-id="{{ schedule.employee.employee_id }}">Late</button>
                                         <button type="button" class="btn btn-danger btn-sm mark-absent" data-emp-id="{{ schedule.employee.employee_id }}">Absent</button>
+                                        <button type="button" class="btn btn-info btn-sm mark-early" data-emp-id="{{ schedule.employee.employee_id }}">Early</button>
+                                        <button type="button" class="btn btn-dark btn-sm mark-overtime" data-emp-id="{{ schedule.employee.employee_id }}">OT</button>
+                                        <button type="button" class="btn btn-secondary btn-sm mark-coverup" data-emp-id="{{ schedule.employee.employee_id }}">Cover</button>
                                     </div>
                                     {% endif %}
                                 </div>
@@ -147,6 +150,39 @@
                                     <button class="btn btn-secondary cancel-attendance" type="button" data-emp-id="{{ schedule.employee.employee_id }}">Cancel</button>
                                 </div>
                                 <div class="form-text">Note: Enter minutes late (0-120)</div>
+                            </div>
+
+                            <!-- Early leave input (hidden by default) -->
+                            <div class="early-leave-inputs d-none mt-2" id="early-leave-input-{{ schedule.employee.employee_id }}">
+                                <div class="input-group">
+                                    <span class="input-group-text">Left at (HH:MM):</span>
+                                    <input type="time" class="form-control early-leave-time" data-emp-id="{{ schedule.employee.employee_id }}">
+                                    <button class="btn btn-primary save-attendance" type="button" data-emp-id="{{ schedule.employee.employee_id }}">Save</button>
+                                    <button class="btn btn-secondary cancel-attendance" type="button" data-emp-id="{{ schedule.employee.employee_id }}">Cancel</button>
+                                </div>
+                                <div class="form-text">Note: Enter time employee left early (e.g., 14:30)</div>
+                            </div>
+
+                            <!-- Overtime input (hidden by default) -->
+                            <div class="overtime-inputs d-none mt-2" id="overtime-input-{{ schedule.employee.employee_id }}">
+                                <div class="input-group">
+                                    <span class="input-group-text">Overtime Minutes:</span>
+                                    <input type="number" class="form-control overtime-minutes" data-emp-id="{{ schedule.employee.employee_id }}" min="0" max="480" value="60">
+                                    <button class="btn btn-primary save-attendance" type="button" data-emp-id="{{ schedule.employee.employee_id }}">Save</button>
+                                    <button class="btn btn-secondary cancel-attendance" type="button" data-emp-id="{{ schedule.employee.employee_id }}">Cancel</button>
+                                </div>
+                                <div class="form-text">Note: Enter overtime minutes worked (0-480)</div>
+                            </div>
+
+                            <!-- Cover-up input (hidden by default) -->
+                            <div class="coverup-inputs d-none mt-2" id="coverup-input-{{ schedule.employee.employee_id }}">
+                                <div class="input-group">
+                                    <span class="input-group-text">Cover for (Employee ID):</span>
+                                    <input type="number" class="form-control coverup-employee-id" data-emp-id="{{ schedule.employee.employee_id }}" placeholder="Enter employee ID">
+                                    <button class="btn btn-primary save-attendance" type="button" data-emp-id="{{ schedule.employee.employee_id }}">Save</button>
+                                    <button class="btn btn-secondary cancel-attendance" type="button" data-emp-id="{{ schedule.employee.employee_id }}">Cancel</button>
+                                </div>
+                                <div class="form-text">Note: Enter the employee ID you are covering for</div>
                             </div>
 
                             <textarea class="form-control mt-2 notes-input" placeholder="Add notes..." id="notes-{{ schedule.employee.employee_id }}" rows="2"></textarea>
@@ -200,10 +236,68 @@
         btn.addEventListener('click', function() {
             const empId = this.dataset.empId;
             document.getElementById(`late-input-${empId}`).classList.add('d-none');
+            document.getElementById(`early-leave-input-${empId}`).classList.add('d-none');
+            document.getElementById(`overtime-input-${empId}`).classList.add('d-none');
+            document.getElementById(`coverup-input-${empId}`).classList.add('d-none');
         });
     });
 
-    async function markAttendance(employeeId, status, lateMinutes = 0, notes = '') {
+    // Mark early leave
+    document.querySelectorAll('.mark-early').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const empId = this.dataset.empId;
+            document.getElementById(`early-leave-input-${empId}`).classList.remove('d-none');
+            this.closest('.schedule-card').classList.add('absent');
+        });
+    });
+
+    // Mark overtime
+    document.querySelectorAll('.mark-overtime').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const empId = this.dataset.empId;
+            document.getElementById(`overtime-input-${empId}`).classList.remove('d-none');
+            this.closest('.schedule-card').classList.add('present');
+        });
+    });
+
+    // Mark cover-up
+    document.querySelectorAll('.mark-coverup').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const empId = this.dataset.empId;
+            document.getElementById(`coverup-input-${empId}`).classList.remove('d-none');
+            this.closest('.schedule-card').classList.add('on_leave');
+        });
+    });
+
+    // Save attendance for all input types
+    document.querySelectorAll('.save-attendance').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const empId = this.dataset.empId;
+            const notes = document.getElementById(`notes-${empId}`).value;
+
+            // Check which input is visible
+            const lateInput = document.getElementById(`late-input-${empId}`);
+            const earlyInput = document.getElementById(`early-leave-input-${empId}`);
+            const overtimeInput = document.getElementById(`overtime-input-${empId}`);
+            const coverupInput = document.getElementById(`coverup-input-${empId}`);
+
+            if (!lateInput.classList.contains('d-none')) {
+                const lateMinutes = document.querySelector(`.late-minutes[data-emp-id="${empId}"]`).value;
+                markAttendance(empId, 'late', lateMinutes, notes);
+            } else if (!earlyInput.classList.contains('d-none')) {
+                const earlyLeaveTime = document.querySelector(`.early-leave-time[data-emp-id="${empId}"]`).value;
+                markAttendance(empId, 'early_leave', 0, notes, earlyLeaveTime);
+            } else if (!overtimeInput.classList.contains('d-none')) {
+                const overtimeMinutes = document.querySelector(`.overtime-minutes[data-emp-id="${empId}"]`).value;
+                markAttendance(empId, 'overtime', 0, notes, null, overtimeMinutes);
+            } else if (!coverupInput.classList.contains('d-none')) {
+                const coverUpForId = document.querySelector(`.coverup-employee-id[data-emp-id="${empId}"]`).value;
+                markAttendance(empId, 'cover_up', 0, notes, null, 0, coverUpForId);
+            }
+        });
+    });
+
+    async function markAttendance(employeeId, status, lateMinutes = 0, notes = '', earlyLeaveTime = null, overtimeMinutes = 0, coverUpForId = null) {
         try {
             const response = await fetch('/attendance/mark', {
                 method: 'POST',
@@ -215,7 +309,10 @@
                     date: '{{ today.strftime("%Y-%m-%d") }}',
                     status: status,
                     late_minutes: lateMinutes,
-                    notes: notes
+                    notes: notes,
+                    early_leave_time: earlyLeaveTime,
+                    overtime_minutes: overtimeMinutes,
+                    cover_up_for_employee_id: coverUpForId
                 })
             });
 
@@ -224,14 +321,56 @@
             if (response.ok) {
                 // Update the UI
                 const card = document.querySelector(`[data-emp-id="${employeeId}"]`).closest('.schedule-card');
-                card.classList.remove('late');
-                card.classList.add('present');
+
+                // Hide all input fields
+                document.getElementById(`late-input-${employeeId}`).classList.add('d-none');
+                document.getElementById(`early-leave-input-${employeeId}`).classList.add('d-none');
+                document.getElementById(`overtime-input-${employeeId}`).classList.add('d-none');
+                document.getElementById(`coverup-input-${employeeId}`).classList.add('d-none');
+
+                // Remove status classes
+                card.classList.remove('late', 'absent', 'present', 'on_leave');
+
+                // Set status badge based on status
+                let badgeClass = 'present';
+                let badgeText = 'Present';
+                let badgeBg = '#198754';
+
+                if (status === 'late') {
+                    badgeClass = 'late';
+                    badgeText = `Late (${lateMinutes} min)`;
+                    badgeBg = '#ffc107';
+                } else if (status === 'absent') {
+                    badgeClass = 'absent';
+                    badgeText = 'Absent';
+                    badgeBg = '#dc3545';
+                } else if (status === 'early_leave') {
+                    badgeClass = 'absent';
+                    badgeText = 'Early Leave';
+                    badgeBg = '#dc3545';
+                } else if (status === 'overtime') {
+                    badgeClass = 'present';
+                    badgeText = `Overtime (${overtimeMinutes} min)`;
+                    badgeBg = '#198754';
+                } else if (status === 'cover_up') {
+                    badgeClass = 'on_leave';
+                    badgeText = 'Cover Up';
+                    badgeBg = '#6c757d';
+                } else if (status === 'on_leave') {
+                    badgeClass = 'on_leave';
+                    badgeText = 'On Leave';
+                    badgeBg = '#6c757d';
+                }
 
                 // Update status badge
                 const statusBadge = card.querySelector('.status-badge');
                 if (!statusBadge) {
                     const statusDiv = card.querySelector('.employee-info > div:last-child');
-                    statusDiv.innerHTML = `<span class="status-badge present" style="background-color: #198754; color: white;">Present</span><button class="btn btn-sm btn-outline-secondary" disabled>Marked</button>`;
+                    statusDiv.innerHTML = `<span class="status-badge ${badgeClass}" style="background-color: ${badgeBg}; color: white;">${badgeText}</span><button class="btn btn-sm btn-outline-secondary" disabled>Marked</button>`;
+                } else {
+                    statusBadge.className = `status-badge ${badgeClass}`;
+                    statusBadge.style.backgroundColor = badgeBg;
+                    statusBadge.textContent = badgeText;
                 }
 
                 alert('Attendance marked successfully!');

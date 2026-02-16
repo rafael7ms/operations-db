@@ -143,12 +143,18 @@ class Attendance(db.Model):
     attendance_id = db.Column(db.Integer, primary_key=True)
     employee_id = db.Column(db.BigInteger, db.ForeignKey('employees.employee_id'), nullable=False)
     date = db.Column(db.Date, nullable=False)
-    check_in = db.Column(db.Time, nullable=False)
+    check_in = db.Column(db.Time)
     check_out = db.Column(db.Time)
     exception_type = db.Column(db.String(50))
     late_minutes = db.Column(db.Integer, default=0)  # Minutes late if arrival is late
+    early_leave = db.Column(db.Time)  # Time when employee left early
+    overtime_minutes = db.Column(db.Integer, default=0)  # Minutes of overtime worked
+    cover_up_for_employee_id = db.Column(db.BigInteger, db.ForeignKey('employees.employee_id'))  # If covering for someone
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationships
+    cover_up_for_employee = db.relationship('Employee', foreign_keys=[cover_up_for_employee_id], remote_side=[employee_id])
 
     __table_args__ = (
         db.UniqueConstraint('employee_id', 'date', name='uq_employee_date'),
@@ -166,9 +172,13 @@ class AttendanceHistory(db.Model):
     attendance_id = db.Column(db.Integer, nullable=False, index=True)
     employee_id = db.Column(db.BigInteger, nullable=False)
     date = db.Column(db.Date, nullable=False)
-    check_in = db.Column(db.Time, nullable=False)
+    check_in = db.Column(db.Time)
     check_out = db.Column(db.Time)
     exception_type = db.Column(db.String(50))
+    late_minutes = db.Column(db.Integer, default=0)
+    early_leave = db.Column(db.Time)
+    overtime_minutes = db.Column(db.Integer, default=0)
+    cover_up_for_employee_id = db.Column(db.BigInteger)
     notes = db.Column(db.Text)
     archived_date = db.Column(db.DateTime, default=datetime.utcnow)
 
