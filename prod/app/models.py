@@ -335,13 +335,33 @@ class NewEmployeeReview(db.Model):
         return f'<NewEmployeeReview {self.review_id}: {self.full_name} - {self.status}>'
 
     def approve(self, reviewed_by_id):
-        """Approve the review and create the actual employee record."""
+        """Approve the review and create the actual employee record.
+
+        Returns the employee record if created, or an existing employee if one matches.
+        Returns None if duplicate email is found.
+        """
+        from app.models import Employee
+
+        # Generate email from first and last name
+        company_email = f"{self.first_name.lower()}.{self.last_name.lower()}@7managedservices.com"
+
+        # Check if employee with this email already exists
+        existing = Employee.query.filter_by(company_email=company_email).first()
+        if existing:
+            return f"Employee with email {company_email} already exists (ID: {existing.employee_id})"
+
+        # Check if employee with this employee_id already exists
+        existing_by_id = Employee.query.get(self.employee_id)
+        if existing_by_id:
+            return f"Employee with ID {self.employee_id} already exists"
+
+        # Create new employee
         employee = Employee(
             employee_id=self.employee_id,
             first_name=self.first_name,
             last_name=self.last_name,
             full_name=self.full_name,
-            company_email=f"{self.first_name.lower()}.{self.last_name.lower()}@7managedservices.com",
+            company_email=company_email,
             batch=self.batch,
             supervisor=self.supervisor,
             manager=self.manager,
