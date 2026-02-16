@@ -16,6 +16,16 @@ class APIError(BadRequest):
 bp = Blueprint('api', __name__)
 
 
+@bp.route('/', methods=['GET'])
+def api_root():
+    """API root endpoint - returns documentation link."""
+    return jsonify({
+        'message': 'Operations DB API',
+        'version': '1.0.0',
+        'documentation': '/apidocs'
+    }), 200
+
+
 @bp.route('/health', methods=['GET'])
 def health_check():
     """Health check endpoint."""

@@ -14,7 +14,13 @@
       "Bash(netstat:*)",
       "Bash(findstr:*)",
       "Bash(tasklist:*)",
-      "Bash(timeout:*)"
+      "Bash(timeout:*)",
+      "Bash(git tag:*)",
+      "Bash(where:*)",
+      "Bash(gh pr:*)",
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(git checkout:*)"
     ]
   }
 }

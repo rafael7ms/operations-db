@@ -549,3 +549,12 @@ def delete_db_user(user_id):
     db.session.commit()
     flash('Database user deleted successfully!', 'success')
     return redirect(url_for('main.db_users'))
+
+
+# ==================== API DOCUMENTATION ====================
+
+@bp.route('/apidocs')
+@login_required
+def apidocs():
+    """API documentation page."""
+    return render_template('apidocs.html')

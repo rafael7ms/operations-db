@@ -1,0 +1,547 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Operations DB - API Documentation</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <style>
+        .api-section {
+            margin-bottom: 3rem;
+        }
+        .endpoint-card {
+            border-left: 4px solid #0d6efd;
+            margin-bottom: 1rem;
+        }
+        .endpoint-card.post { border-left-color: #198754; }
+        .endpoint-card.get { border-left-color: #0d6efd; }
+        .endpoint-card.put { border-left-color: #ffc107; }
+        .endpoint-card.delete { border-left-color: #dc3545; }
+        .method-badge {
+            font-weight: bold;
+            padding: 0.25rem 0.5rem;
+            border-radius: 0.25rem;
+            color: white;
+        }
+        .method-get { background-color: #0d6efd; }
+        .method-post { background-color: #198754; }
+        .method-put { background-color: #ffc107; color: #333; }
+        .method-delete { background-color: #dc3545; }
+        .code-block {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.25rem;
+            padding: 1rem;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        .response-preview {
+            background-color: #e9ecef;
+            padding: 1rem;
+            border-radius: 0.25rem;
+            margin-top: 0.5rem;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+        <div class="container">
+            <a class="navbar-brand" href="/">Operations DB</a>
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+                <span class="navbar-toggler-icon"></span>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav">
+                    <li class="nav-item">
+                        <a class="nav-link" href="/dashboard">Dashboard</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/employees">Employees</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/schedules">Schedules</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/attendance">Attendance</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="/exceptions">Exceptions</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link active" href="/apidocs">API Docs</a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <h1 class="mb-4">API Documentation</h1>
+        <div class="alert alert-info">
+            <strong>Base URL:</strong> <code id="base-url">http://127.0.0.1:5443/api</code>
+        </div>
+
+        <!-- Health Check -->
+        <div class="api-section">
+            <h2>Health Check</h2>
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/health</code>
+                    </h5>
+                    <p class="card-text">Returns health status of the API.</p>
+                    <div class="code-block">
+curl http://127.0.0.1:5443/api/health
+</div>
+                    <div class="response-preview">
+<strong>Response:</strong><br>
+<code>{"status": "healthy"}</code>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Employee Endpoints -->
+        <div class="api-section">
+            <h2>Employees</h2>
+
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/employees</code>
+                    </h5>
+                    <p class="card-text">Get all employees (filter by status with query param).</p>
+                    <div class="code-block">
+# Get all active employees
+curl http://127.0.0.1:5443/api/employees
+
+# Get employees with status filter
+curl http://127.0.0.1:5443/api/employees?status=Active
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/employees/&lt;id&gt;</code>
+                    </h5>
+                    <p class="card-text">Get single employee by ID.</p>
+                    <div class="code-block">
+curl http://127.0.0.1:5443/api/employees/41031748911
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/employees</code>
+                    </h5>
+                    <p class="card-text">Create new employee.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/employees \
+  -H "Content-Type: application/json" \
+  -d '{
+    "employee_id": 41031748911,
+    "first_name": "John",
+    "last_name": "Doe",
+    "company_email": "john@company.com",
+    "batch": "2024-01",
+    "supervisor": "Jane Smith",
+    "manager": "Bob Johnson",
+    "shift": "Morning",
+    "department": "Customer Support",
+    "role": "Associate"
+  }'
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card put">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-put">PUT</span>
+                        <code>/employees/&lt;id&gt;</code>
+                    </h5>
+                    <p class="card-text">Update employee.</p>
+                    <div class="code-block">
+curl -X PUT http://127.0.0.1:5443/api/employees/41031748911 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tier": 2,
+    "status": "Active"
+  }'
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card delete">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-delete">DELETE</span>
+                        <code>/employees/&lt;id&gt;</code>
+                    </h5>
+                    <p class="card-text">Delete employee.</p>
+                    <div class="code-block">
+curl -X DELETE http://127.0.0.1:5443/api/employees/41031748911
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/employees/batch</code>
+                    </h5>
+                    <p class="card-text">Bulk import employees from Excel file.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/employees/batch \
+  -F "file=@employees.xlsx"
+</div>
+                    <p><strong>Excel columns:</strong> Odoo ID, First Name, Last Name, Batch, Supervisor, Manager, Shift, Department, Role, Hire Date, Company Email, Tier (optional)</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Schedule Endpoints -->
+        <div class="api-section">
+            <h2>Schedules</h2>
+
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/schedules</code>
+                    </h5>
+                    <p class="card-text">Get schedules with optional filters.</p>
+                    <div class="code-block">
+curl http://127.0.0.1:5443/api/schedules?start_date=2026-02-01&end_date=2026-02-28
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/schedules</code>
+                    </h5>
+                    <p class="card-text">Create single schedule.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/schedules \
+  -H "Content-Type: application/json" \
+  -d '{
+    "employee_id": 41031748911,
+    "start_date": "2026-02-17",
+    "start_time": "08:00",
+    "stop_date": "2026-02-17",
+    "stop_time": "17:00",
+    "work_code": "REG"
+  }'
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/schedules/batch</code>
+                    </h5>
+                    <p class="card-text">Bulk import schedules with RUEX ID matching.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/schedules/batch \
+  -F "file=@schedules.xlsx" \
+  -F "employee_file=@employees.xlsx"
+</div>
+                    <p><strong>RUEX ID:</strong> First letter + last name (e.g., "John Smith" → "jsmith")</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Attendance Endpoints -->
+        <div class="api-section">
+            <h2>Attendances</h2>
+
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/attendances</code>
+                    </h5>
+                    <p class="card-text">Get attendance records with optional filters.</p>
+                    <div class="code-block">
+curl http://127.0.0.1:5443/api/attendances?start_date=2026-02-01&end_date=2026-02-28
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/attendances</code>
+                    </h5>
+                    <p class="card-text">Create attendance record.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/attendances \
+  -H "Content-Type: application/json" \
+  -d '{
+    "employee_id": 41031748911,
+    "date": "2026-02-17",
+    "check_in": "08:00",
+    "check_out": "17:00",
+    "exception_type": "OT",
+    "notes": "Overtime"
+  }'
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card put">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-put">PUT</span>
+                        <code>/attendances/&lt;emp_id&gt;/&lt;date&gt;</code>
+                    </h5>
+                    <p class="card-text">Update attendance record.</p>
+                    <div class="code-block">
+curl -X PUT http://127.0.0.1:5443/api/attendances/41031748911/2026-02-17 \
+  -H "Content-Type: application/json" \
+  -d '{"check_out": "18:00"}'
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/attendances/batch</code>
+                    </h5>
+                    <p class="card-text">Bulk import attendance from Excel.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/attendances/batch \
+  -F "file=@attendances.xlsx"
+</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Reward Endpoints -->
+        <div class="api-section">
+            <h2>Rewards</h2>
+
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/rewards/reasons</code>
+                    </h5>
+                    <p class="card-text">Get active reward reasons.</p>
+                    <div class="code-block">
+curl http://127.0.0.1:5443/api/rewards/reasons
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/rewards/employee/&lt;id&gt;</code>
+                    </h5>
+                    <p class="card-text">Get employee reward history.</p>
+                    <div class="code-block">
+curl http://127.0.0.1:5443/api/rewards/employee/41031748911
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/rewards/employee/&lt;id&gt;/balance</code>
+                    </h5>
+                    <p class="card-text">Get employee's current point balance.</p>
+                    <div class="code-block">
+curl http://127.0.0.1:5443/api/rewards/employee/41031748911/balance
+
+<strong>Response:</strong>
+{"employee_id": 41031748911, "employee_name": "Heily Melendez", "point_balance": 500}
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/rewards/award</code>
+                    </h5>
+                    <p class="card-text">Award points to employee.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/rewards/award \
+  -H "Content-Type: application/json" \
+  -d '{
+    "employee_id": 41031748911,
+    "reason_id": 1,
+    "points": 50,
+    "date_awarded": "2026-02-16",
+    "notes": "Excellent performance"
+  }'
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/rewards/award/batch</code>
+                    </h5>
+                    <p class="card-text">Bulk award points from Excel.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/rewards/award/batch \
+  -F "file=@rewards.xlsx"
+</div>
+                    <p><strong>Excel columns:</strong> Employee - ID, Reason ID, Points, Date Awarded</p>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/rewards/redemptions</code>
+                    </h5>
+                    <p class="card-text">Redeem points for employee.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/rewards/redemptions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "employee_id": 41031748911,
+    "points_redeemed": 100,
+    "redemption_type": "Gift Card",
+    "redemption_details": "Amazon $50",
+    "approved_by": 41000000001
+  }'
+</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Exception Endpoints -->
+        <div class="api-section">
+            <h2>Exceptions</h2>
+
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/exceptions</code>
+                    </h5>
+                    <p class="card-text">Get exception records.</p>
+                    <div class="code-block">
+curl http://127.0.0.1:5443/api/exceptions?status=Pending
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/exceptions</code>
+                    </h5>
+                    <p class="card-text">Create exception record.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/exceptions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "employee_id": 41031748911,
+    "exception_type": "Training",
+    "start_date": "2026-02-20",
+    "end_date": "2026-02-22",
+    "work_code": "TRAIN",
+    "status": "Pending"
+  }'
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/exceptions/&lt;id&gt;/process</code>
+                    </h5>
+                    <p class="card-text">Process exception record.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/exceptions/1/process \
+  -H "Content-Type: application/json" \
+  -d '{"processed_by": 41000000001}'
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/exceptions/batch</code>
+                    </h5>
+                    <p class="card-text">Bulk import exceptions from Excel.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/exceptions/batch \
+  -F "file=@exceptions.xlsx"
+</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Admin Options Endpoints -->
+        <div class="api-section">
+            <h2>Admin Options</h2>
+
+            <div class="card endpoint-card get">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-get">GET</span>
+                        <code>/admin/options</code>
+                    </h5>
+                    <p class="card-text">Get admin dropdown options.</p>
+                    <div class="code-block">
+curl http://127.0.0.1:5443/api/admin/options?category=department
+</div>
+                </div>
+            </div>
+
+            <div class="card endpoint-card post">
+                <div class="card-body">
+                    <h5 class="card-title">
+                        <span class="method-badge method-post">POST</span>
+                        <code>/admin/options</code>
+                    </h5>
+                    <p class="card-text">Create admin option.</p>
+                    <div class="code-block">
+curl -X POST http://127.0.0.1:5443/api/admin/options \
+  -H "Content-Type: application/json" \
+  -d '{"category": "department", "value": "Customer Support"}'
+</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+</body>
+</html>
