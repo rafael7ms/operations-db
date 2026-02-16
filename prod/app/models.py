@@ -154,7 +154,7 @@ class Attendance(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     # Relationships
-    cover_up_for_employee = db.relationship('Employee', foreign_keys=[cover_up_for_employee_id], remote_side=[employee_id])
+    cover_up_for_employee = db.relationship('Employee', foreign_keys=[cover_up_for_employee_id])
 
     __table_args__ = (
         db.UniqueConstraint('employee_id', 'date', name='uq_employee_date'),
