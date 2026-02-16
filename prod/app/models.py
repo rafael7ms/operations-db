@@ -300,6 +300,76 @@ class EmployeeRewardRedemption(db.Model):
         return f'<EmployeeRewardRedemption {self.redemption_id}: {self.employee_id} - {self.points_redeemed} pts>'
 
 
+class NewEmployeeReview(db.Model):
+    """Queue for new employees added from roster uploads - requires admin verification."""
+    __tablename__ = 'new_employee_reviews'
+
+    review_id = db.Column(db.Integer, primary_key=True)
+    employee_id = db.Column(db.BigInteger, nullable=False, index=True)
+    first_name = db.Column(db.String(100), nullable=False)
+    last_name = db.Column(db.String(100), nullable=False)
+    full_name = db.Column(db.String(200), nullable=False)
+    batch = db.Column(db.String(20), nullable=False)
+    supervisor = db.Column(db.String(100), nullable=False)
+    manager = db.Column(db.String(100), nullable=False)
+    tier = db.Column(db.Integer)
+    shift = db.Column(db.String(20), nullable=False)
+    department = db.Column(db.String(50), nullable=False)
+    role = db.Column(db.String(50), nullable=False)
+    hire_date = db.Column(db.Date)
+    phase_1_date = db.Column(db.Date)
+    phase_2_date = db.Column(db.Date)
+    phase_3_date = db.Column(db.Date)
+    ruex_id = db.Column(db.String(50))
+    axonify_id = db.Column(db.String(50))
+    notes = db.Column(db.Text)
+    status = db.Column(db.String(20), nullable=False, default='Pending')  # Pending, Verified, Rejected
+    reviewed_by = db.Column(db.BigInteger, db.ForeignKey('employees.employee_id'))
+    reviewed_at = db.Column(db.DateTime)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    # Relationship
+    reviewed_by_user = db.relationship('Employee', foreign_keys=[reviewed_by])
+
+    def __repr__(self):
+        return f'<NewEmployeeReview {self.review_id}: {self.full_name} - {self.status}>'
+
+    def approve(self, reviewed_by_id):
+        """Approve the review and create the actual employee record."""
+        employee = Employee(
+            employee_id=self.employee_id,
+            first_name=self.first_name,
+            last_name=self.last_name,
+            full_name=self.full_name,
+            company_email=f"{self.first_name.lower()}.{self.last_name.lower()}@7managedservices.com",
+            batch=self.batch,
+            supervisor=self.supervisor,
+            manager=self.manager,
+            tier=self.tier,
+            shift=self.shift,
+            department=self.department,
+            role=self.role,
+            hire_date=self.hire_date,
+            phase_1_date=self.phase_1_date,
+            phase_2_date=self.phase_2_date,
+            phase_3_date=self.phase_3_date,
+            ruex_id=self.ruex_id,
+            axonify_id=self.axonify_id,
+            status='Active'
+        )
+        self.status = 'Verified'
+        self.reviewed_by = reviewed_by_id
+        self.reviewed_at = datetime.utcnow()
+        return employee
+
+    def reject(self, notes, reviewed_by_id):
+        """Reject the review."""
+        self.status = 'Rejected'
+        self.notes = f"Rejected: {notes}\nOriginal: {self.notes}"
+        self.reviewed_by = reviewed_by_id
+        self.reviewed_at = datetime.utcnow()
+
+
 class User(UserMixin, db.Model):
     """System users for admin access."""
     __tablename__ = 'users'

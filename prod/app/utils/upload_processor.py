@@ -1,7 +1,7 @@
 import pandas as pd
 from datetime import datetime, timedelta, time
 from app import db
-from app.models import Employee, Schedule, Attendance, ExceptionRecord
+from app.models import Employee, Schedule, Attendance, ExceptionRecord, NewEmployeeReview
 
 
 def process_employee_upload(file_path):
@@ -17,11 +17,19 @@ def process_employee_upload(file_path):
     except Exception as e:
         return 0, 1, [f'Error reading file: {str(e)}']
 
+    # Detect file format based on columns
+    # New Roster format: ['#', 'Name', 'Last Name', 'First Name', 'Batch', 'BO User', ...]
+    # Old format: ['Odoo ID', 'First Name', 'Last Name', 'Batch', 'Company Email', ...]
+
+    # Check for new roster format (has 'Name' column)
+    if 'Name' in df.columns and '#' in df.columns:
+        return process_new_roster_upload(file_path, df)
+
+    # Check for old format
     required_columns = ['Odoo ID', 'First Name', 'Last Name', 'Batch', 'Supervisor',
                        'Manager', 'Shift', 'Department', 'Role', 'Hire Date',
                        'Company Email']
 
-    # Check for required columns
     missing_cols = [col for col in required_columns if col not in df.columns]
     if missing_cols:
         return 0, 1, [f'Missing required columns: {missing_cols}']
@@ -54,12 +62,87 @@ def process_employee_upload(file_path):
                 hire_date=row['Hire Date'].to_pydatetime().date() if pd.notna(row['Hire Date']) else None,
                 tier=int(row['Tier']) if pd.notna(row['Tier']) else None,
                 agent_id=int(row['Agent ID']) if pd.notna(row['Agent ID']) else None,
-                bo_user=str(row['BO User']).strip() if pd.notna(row['BO User']) else None,
-                axonify=str(row['Axonify']).strip() if pd.notna(row['Axonify']) else None,
+                ruex_id=str(row.get('BO User', '')).strip() if pd.notna(row.get('BO User')) else None,
+                axonify_id=str(row.get('Axonify', '')).strip() if pd.notna(row.get('Axonify')) else None,
                 status='Active'
             )
 
             db.session.add(employee)
+            success_count += 1
+
+        except Exception as e:
+            errors.append(f'Row {idx + 2}: {str(e)}')
+
+    db.session.commit()
+    return success_count, len(errors), errors
+
+
+def process_new_roster_upload(file_path, df=None):
+    """
+    Process new Roster format Excel upload.
+    Adds employees to a review queue for admin verification.
+    Returns (success_count, error_count, errors_list).
+    """
+    if df is None:
+        try:
+            df = pd.read_excel(file_path)
+        except Exception as e:
+            return 0, 1, [f'Error reading file: {str(e)}']
+
+    # New Roster columns: ['#', 'Name', 'Last Name', 'First Name', 'Batch', 'BO User',
+    # 'Axonify', 'Supervisor', 'Manager', 'Tier', 'Shift', 'Schedule', 'Department',
+    # 'Role', 'Phase 1 Date', 'Phase 2 Date', 'Phase 3 Date', 'Hire Date']
+
+    errors = []
+    success_count = 0
+
+    # Check for required columns
+    required_columns = ['#', 'Name', 'Last Name', 'First Name', 'Batch', 'Supervisor',
+                       'Manager', 'Shift', 'Department', 'Role', 'Hire Date']
+
+    missing_cols = [col for col in required_columns if col not in df.columns]
+    if missing_cols:
+        return 0, 1, [f'Missing required columns: {missing_cols}']
+
+    for idx, row in df.iterrows():
+        try:
+            # Parse name - in format "First Last"
+            first_name = str(row['First Name']).strip()
+            last_name = str(row['Last Name']).strip()
+            full_name = str(row['Name']).strip()
+
+            # Get employee ID from '#' column
+            employee_id = int(row['#'])
+
+            # Check if employee already exists
+            existing = Employee.query.get(employee_id)
+            if existing:
+                errors.append(f'Employee {employee_id} already exists, skipping')
+                continue
+
+            # Create NewEmployeeReview record instead of adding directly
+            review = NewEmployeeReview(
+                employee_id=employee_id,
+                first_name=first_name,
+                last_name=last_name,
+                full_name=full_name,
+                batch=str(row['Batch']).strip(),
+                supervisor=str(row['Supervisor']).strip() if pd.notna(row.get('Supervisor')) else '',
+                manager=str(row['Manager']).strip() if pd.notna(row.get('Manager')) else '',
+                shift=str(row['Shift']).strip() if pd.notna(row.get('Shift')) else '',
+                department=str(row['Department']).strip() if pd.notna(row.get('Department')) else '',
+                role=str(row['Role']).strip() if pd.notna(row.get('Role')) else '',
+                hire_date=row['Hire Date'].to_pydatetime().date() if pd.notna(row['Hire Date']) else None,
+                phase_1_date=row['Phase 1 Date'].to_pydatetime().date() if pd.notna(row['Phase 1 Date']) else None,
+                phase_2_date=row['Phase 2 Date'].to_pydatetime().date() if pd.notna(row['Phase 2 Date']) else None,
+                phase_3_date=row['Phase 3 Date'].to_pydatetime().date() if pd.notna(row['Phase 3 Date']) else None,
+                ruex_id=str(row.get('BO User', '')).strip() if pd.notna(row.get('BO User')) else None,
+                axonify_id=str(row.get('Axonify', '')).strip() if pd.notna(row.get('Axonify')) else None,
+                notes='New employee added from roster upload - pending admin review',
+                status='Pending'
+            )
+
+            db.session.add(review)
             success_count += 1
 
         except Exception as e:
@@ -102,6 +185,25 @@ def process_schedule_upload(file_path, employee_file_path=None):
         df = pd.read_excel(file_path)
     except Exception as e:
         return 0, 1, [f'Error reading file: {str(e)}']
+
+    # Detect format - check if first row has actual data or just headers
+    # New format: Headers in row 0 with names like 'Employee - ID'
+    # Old format: Headers in row 0 with names like 'Employee - ID'
+    # Both formats should be compatible, but we need to handle row 0 as header
+
+    # Check for new format (multi-level headers in row 0)
+    first_row = df.iloc[0].astype(str).tolist() if len(df) > 0 else []
+    is_new_format = 'Employee - ID' in first_row
+
+    # Skip header row if it's in the first row
+    if is_new_format:
+        df = df.iloc[1:].reset_index(drop=True)
+
+    # Map column names to expected format
+    # New format columns might be: 'Employee - ID', 'Employee - First Name', 'Employee - Last Name',
+    # 'Date - Nominal Date', 'Earliest - Start', 'Latest - Stop', 'Work - Code'
+    # Old format columns: 'Employee - ID', 'Date - Nominal Date', 'Earliest - Start',
+    # 'Latest - Stop', 'Work - Code'
 
     required_columns = ['Employee - ID', 'Date - Nominal Date', 'Earliest - Start',
                        'Latest - Stop', 'Work - Code']

@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify
 from app import db
-from app.models import Employee, Schedule, AdminOptions, ExceptionRecord, User, RewardReason, EmployeeReward, Attendance, DBUser
+from app.models import Employee, Schedule, AdminOptions, ExceptionRecord, User, RewardReason, EmployeeReward, Attendance, DBUser, NewEmployeeReview
 from flask_login import login_user, logout_user, login_required, current_user
 from app.utils.parsers import parse_name
 import pandas as pd
@@ -631,3 +631,50 @@ def delete_db_user(user_id):
 def apidocs():
     """API documentation page."""
     return render_template('apidocs.html')
+
+
+# ==================== NEW EMPLOYEE REVIEWS ====================
+
+@bp.route('/employees/reviews')
+@login_required
+def employee_reviews():
+    """New employee reviews queue - admin verification."""
+    pending = NewEmployeeReview.query.filter_by(status='Pending').all()
+    verified = NewEmployeeReview.query.filter_by(status='Verified').all()
+    rejected = NewEmployeeReview.query.filter_by(status='Rejected').all()
+    return render_template('employee_reviews.html',
+                         pending_reviews=pending,
+                         verified_reviews=verified,
+                         rejected_reviews=rejected)
+
+
+@bp.route('/employees/reviews/<int:review_id>/approve', methods=['POST'])
+@login_required
+def approve_employee_review(review_id):
+    """Approve a new employee review and create the employee record."""
+    review = NewEmployeeReview.query.get_or_404(review_id)
+    try:
+        employee = review.approve(current_user.id if hasattr(current_user, 'id') else 1)
+        db.session.add(employee)
+        db.session.commit()
+        flash('Employee approved and record created!', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error creating employee record: {str(e)}', 'danger')
+    return redirect(url_for('main.employee_reviews'))
+
+
+@bp.route('/employees/reviews/<int:review_id>/reject', methods=['POST'])
+@login_required
+def reject_employee_review(review_id):
+    """Reject a new employee review."""
+    review = NewEmployeeReview.query.get_or_404(review_id)
+    notes = request.form.get('notes', 'No notes provided')
+    try:
+        review.reject(notes, current_user.id if hasattr(current_user, 'id') else 1)
+        db.session.commit()
+        flash('Employee review rejected.', 'warning')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'Error rejecting review: {str(e)}', 'danger')
+    return redirect(url_for('main.employee_reviews'))
