@@ -42,7 +42,7 @@
                         <a class="nav-link" href="/schedules">Schedules</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/attendance/attendance">Daily Attendance</a>
+                        <a class="nav-link" href="/attendance">Daily Attendance</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link active" href="/attendance/report/daily">Daily Report</a>
@@ -67,7 +67,7 @@
                 </p>
             </div>
             <div>
-                <a href="/attendance/attendance" class="btn btn-primary">
+                <a href="{{ url_for('attendance_tracker.attendance_page') }}" class="btn btn-primary">
                     <i class="bi bi-arrow-left"></i> Back to Daily Attendance
                 </a>
             </div>

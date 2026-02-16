@@ -20,7 +20,11 @@
       "Bash(gh pr:*)",
       "Bash(pip install:*)",
       "Bash(curl:*)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(taskkill:*)",
+      "Bash(find:*)",
+      "Bash(pkill:*)",
+      "Bash(powershell -Command:*)"
     ]
   }
 }

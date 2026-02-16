@@ -48,7 +48,7 @@
                         <a class="nav-link" href="/schedules">Schedules</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="/attendance/attendance">Daily Attendance</a>
+                        <a class="nav-link active" href="/attendance">Daily Attendance</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="/attendance/report/daily">Daily Report</a>
@@ -71,7 +71,7 @@
                 <p class="text-muted">Date: <strong>{{ today.strftime('%A, %B %d, %Y') }}</strong></p>
             </div>
             <div>
-                <a href="/attendance/report/daily?date={{ today.strftime('%Y-%m-%d') }}" class="btn btn-primary">
+                <a href="{{ url_for('attendance_tracker.daily_report', date=today.strftime('%Y-%m-%d')) }}" class="btn btn-primary">
                     <i class="bi bi-file-earmark-text"></i> View Daily Report
                 </a>
             </div>

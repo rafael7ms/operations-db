@@ -75,7 +75,7 @@ def get_today_exceptions():
 
 # ==================== ROUTES ====================
 
-@attendance_bp.route('/attendance')
+@attendance_bp.route('/')
 def attendance_page():
     """Daily attendance tracking page."""
     today = datetime.utcnow().date()
@@ -107,7 +107,7 @@ def attendance_page():
     )
 
 
-@attendance_bp.route('/attendance/mark', methods=['POST'])
+@attendance_bp.route('/mark', methods=['POST'])
 def mark_attendance():
     """Mark attendance for an employee."""
     data = request.get_json()
@@ -219,7 +219,7 @@ def mark_attendance():
     })
 
 
-@attendance_bp.route('/attendance/report/daily')
+@attendance_bp.route('/report/daily')
 def daily_report():
     """Daily attendance report."""
     date_str = request.args.get('date', datetime.utcnow().strftime('%Y-%m-%d'))
@@ -264,7 +264,7 @@ def daily_report():
     )
 
 
-@attendance_bp.route('/attendance/report/weekly')
+@attendance_bp.route('/report/weekly')
 def weekly_report():
     """Weekly attendance report (last 7 days)."""
     end_date = request.args.get('end_date', datetime.utcnow().strftime('%Y-%m-%d'))
@@ -309,7 +309,7 @@ def weekly_report():
     )
 
 
-@attendance_bp.route('/attendance/report/monthly')
+@attendance_bp.route('/report/monthly')
 def monthly_report():
     """Monthly attendance report."""
     year_str = request.args.get('year', datetime.utcnow().strftime('%Y'))
@@ -368,7 +368,7 @@ def monthly_report():
     )
 
 
-@attendance_bp.route('/api/attendance/today')
+@attendance_bp.route('/api/today')
 def api_today_attendance():
     """API endpoint for today's attendance data."""
     today = datetime.utcnow().date()
