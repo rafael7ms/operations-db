@@ -294,6 +294,9 @@ def weekly_report():
             'present': len(day_attendances),
             'late': len([a for a in day_attendances if a.late_minutes and a.late_minutes > 0]),
             'absent': len([a for a in day_attendances if a.exception_type in ['Absent', 'Leave']]),
+            'early_leave': len([a for a in day_attendances if a.exception_type == 'Early Leave']),
+            'overtime': len([a for a in day_attendances if a.exception_type == 'Overtime']),
+            'cover_up': len([a for a in day_attendances if a.exception_type == 'Cover Up']),
             'total_scheduled': Schedule.query.filter_by(start_date=current_date).count()
         }
 
