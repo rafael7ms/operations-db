@@ -167,7 +167,10 @@
                 {% for date, stats in daily_stats.items() %}
                 <div class="mb-4">
                     <h6 class="text-muted">{{ date }} - {{ datetime.strptime(date, '%Y-%m-%d').strftime('%A') }}</h6>
-                    {% set day_attendances = [a for a in attendances if a.date.strftime('%Y-%m-%d') == date] %}
+                    {% set day_attendances = [] %}
+                    {% for a in attendances if a.date.strftime('%Y-%m-%d') == date %}
+                        {% set _ = day_attendances.append(a) %}
+                    {% endfor %}
                     {% if day_attendances %}
                     <div class="table-responsive">
                         <table class="table table-bordered table-sm">

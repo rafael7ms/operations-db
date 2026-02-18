@@ -55,7 +55,7 @@ class Employee(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     # Relationships
-    attendances = db.relationship('Attendance', foreign_keys='Attendance.employee_id', backref='employee', lazy='dynamic')
+    attendances = db.relationship('Attendance', foreign_keys='Attendance.employee_id', back_populates='employee', lazy='dynamic')
     leave_requests = db.relationship('LeaveRequest', foreign_keys='LeaveRequest.employee_id', backref='employee', lazy='dynamic')
     schedule_changes_as_employee = db.relationship('ScheduleChange', foreign_keys='ScheduleChange.employee_id', backref='employee', lazy='dynamic')
     schedule_changes_as_replacement = db.relationship('ScheduleChange', foreign_keys='ScheduleChange.replacement_id', backref='replacement_employee', lazy='dynamic')
@@ -153,7 +153,8 @@ class Attendance(db.Model):
     notes = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
-    # Relationships
+    # Relationships - use back_populates instead of backref to avoid conflicts
+    employee = db.relationship('Employee', foreign_keys=[employee_id], back_populates='attendances')
     cover_up_for_employee = db.relationship('Employee', foreign_keys=[cover_up_for_employee_id])
 
     __table_args__ = (

@@ -46,10 +46,11 @@ def add_attendance_fields():
 def get_todays_schedules():
     """Get all schedules for today."""
     today = datetime.utcnow().date()
-    schedules = Schedule.query.filter(
-        Schedule.start_date == today,
-        Schedule.employee_id == Employee.employee_id
-    ).join(Employee).order_by(Employee.last_name).all()
+    schedules = Schedule.query.join(
+        Employee
+    ).filter(
+        Schedule.start_date == today
+    ).order_by(Employee.last_name).all()
     return schedules
 
 
@@ -246,7 +247,7 @@ def daily_report():
 
     # Get late employees with details
     late_employees = db.session.query(Attendance, Employee).join(
-        Employee
+        Employee, Attendance.employee_id == Employee.employee_id
     ).filter(
         Attendance.date == report_date,
         Attendance.late_minutes > 0
@@ -279,7 +280,7 @@ def weekly_report():
     # Get attendance for the week
     weekly_attendances = Attendance.query.filter(
         Attendance.date >= start_date,
-        Attendance.date <= end_date
+        Attendance.date <= end_date_obj
     ).all()
 
     # Calculate daily summaries
@@ -300,12 +301,28 @@ def weekly_report():
             'total_scheduled': Schedule.query.filter_by(start_date=current_date).count()
         }
 
+    # Calculate summary cards
+    total_scheduled = Schedule.query.filter(
+        Schedule.start_date >= start_date,
+        Schedule.start_date <= end_date_obj
+    ).count()
+
+    present_count = len(weekly_attendances)
+    late_count = len([a for a in weekly_attendances if a.late_minutes and a.late_minutes > 0])
+    absent_count = len([a for a in weekly_attendances if a.exception_type in ['Absent', 'Leave']])
+
     return render_template(
         'attendance_tracker/weekly_report.html',
+        datetime=datetime,  # Pass datetime for template use
         start_date=start_date,
-        end_date=end_date,
+        end_date=end_date_obj,
         daily_stats=daily_stats,
-        weekly_attendances=weekly_attendances
+        weekly_attendances=weekly_attendances,
+        attendances=weekly_attendances,
+        present=present_count,
+        late=late_count,
+        absent=absent_count,
+        total_scheduled=total_scheduled
     )
 
 
