@@ -384,10 +384,18 @@ def schedules():
                          date_range=date_range)
 
 
-@bp.route('/attendance', methods=['GET', 'POST'])
+@bp.route('/attendance', methods=['GET'])
 @login_required
 def attendance():
-    """Attendance management."""
+    """Attendance list view."""
+    attendances = Attendance.query.all()
+    return render_template('attendance.html', attendances=attendances)
+
+
+@bp.route('/attendance/import', methods=['GET', 'POST'])
+@login_required
+def attendance_import():
+    """Attendance import from Excel file."""
     if request.method == 'POST':
         if 'file' in request.files:
             file = request.files['file']
@@ -438,12 +446,12 @@ def attendance():
                     if request.is_json:
                         return jsonify({'success': False, 'error': str(e)})
 
-                return redirect(url_for('main.attendance'))
+                return redirect(url_for('main.attendance_import'))
 
-        return redirect(url_for('main.attendance'))
+        return redirect(url_for('main.attendance_import'))
 
-    attendances = Attendance.query.all()
-    return render_template('attendance.html', attendances=attendances)
+    # Redirect to list view on GET
+    return redirect(url_for('main.attendance'))
 
 
 @bp.route('/exceptions', methods=['GET', 'POST'])

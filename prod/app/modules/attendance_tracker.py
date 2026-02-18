@@ -76,7 +76,7 @@ def get_today_exceptions():
 
 # ==================== ROUTES ====================
 
-@attendance_bp.route('/')
+@attendance_bp.route('/daily')
 def attendance_page():
     """Daily attendance tracking page."""
     today = datetime.utcnow().date()
@@ -108,7 +108,7 @@ def attendance_page():
     )
 
 
-@attendance_bp.route('/mark', methods=['POST'])
+@attendance_bp.route('/daily/mark', methods=['POST'])
 def mark_attendance():
     """Mark attendance for an employee."""
     data = request.get_json()
@@ -423,3 +423,96 @@ def api_today_attendance():
         'date': today.strftime('%Y-%m-%d'),
         'data': data
     })
+
+
+@attendance_bp.route('/exceptions')
+def exception_list():
+    """List of pending and processed exceptions."""
+    exceptions = ExceptionRecord.query.order_by(ExceptionRecord.created_at.desc()).all()
+    return render_template('attendance_tracker/exception_list.html', exceptions=exceptions)
+
+
+@attendance_bp.route('/exceptions/create', methods=['POST'])
+def create_exception():
+    """Create a new exception (Cover Up, Overtime, Vacation, Training, Nesting, Leave)."""
+    data = request.get_json()
+
+    employee_id = data.get('employee_id')
+    exception_type = data.get('exception_type')  # Cover Up, Overtime, Vacation, Training, Nesting, Leave
+    start_date_str = data.get('start_date')
+    end_date_str = data.get('end_date')  # Optional, same as start_date for single day
+    overtime_minutes = data.get('overtime_minutes', 0)
+    overtime_end_time = data.get('overtime_end_time')  # HH:MM format
+    cover_up_for_id = data.get('cover_up_for_employee_id')  # For Cover Up type
+    notes = data.get('notes', '')
+
+    try:
+        start_date = datetime.strptime(start_date_str, '%Y-%m-%d').date()
+    except ValueError:
+        return jsonify({'error': 'Invalid start date format'}), 400
+
+    end_date = start_date
+    if end_date_str:
+        try:
+            end_date = datetime.strptime(end_date_str, '%Y-%m-%d').date()
+        except ValueError:
+            return jsonify({'error': 'Invalid end date format'}), 400
+
+    # Validate exception type
+    valid_types = ['Cover Up', 'Overtime', 'Vacation', 'Training', 'Nesting', 'Leave']
+    if exception_type not in valid_types:
+        return jsonify({'error': f'Invalid exception type. Must be one of: {valid_types}'}), 400
+
+    # Create the exception record
+    exception = ExceptionRecord(
+        employee_id=employee_id,
+        exception_type=exception_type,
+        start_date=start_date,
+        end_date=end_date,
+        notes=notes
+    )
+
+    db.session.add(exception)
+    db.session.commit()
+
+    # If Overtime, also create an attendance record for the extra time
+    if exception_type == 'Overtime':
+        attendance = Attendance(
+            employee_id=employee_id,
+            date=start_date,
+            exception_type='Overtime',
+            overtime_minutes=overtime_minutes,
+            notes=f"Overtime: {overtime_end_time if overtime_end_time else f'{overtime_minutes} minutes'}"
+        )
+        db.session.add(attendance)
+
+    # If Cover Up, also create an attendance record
+    elif exception_type == 'Cover Up':
+        attendance = Attendance(
+            employee_id=employee_id,
+            date=start_date,
+            exception_type='Cover Up',
+            cover_up_for_employee_id=cover_up_for_id,
+            notes=notes
+        )
+        db.session.add(attendance)
+
+    db.session.commit()
+
+    return jsonify({
+        'message': f'Exception created successfully',
+        'exception_id': exception.exception_id
+    })
+
+
+@attendance_bp.route('/exceptions/process/<int:exception_id>', methods=['POST'])
+def process_exception(exception_id):
+    """Process an exception (mark as Completed)."""
+    exception = ExceptionRecord.query.get(exception_id)
+    if not exception:
+        return jsonify({'error': 'Exception not found'}), 404
+
+    exception.status = 'Completed'
+    db.session.commit()
+
+    return jsonify({'message': 'Exception processed successfully'})
