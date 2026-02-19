@@ -44,16 +44,14 @@
                         <a class="nav-link" href="/schedules">Schedules</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/attendance">Daily Attendance</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link active" href="/attendance/report/daily">Daily Report</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/attendance/report/weekly">Weekly Report</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/attendance/report/monthly">Monthly Report</a>
+                        <a class="nav-link dropdown-toggle" href="#" id="attendanceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Attendance</a>
+                        <ul class="dropdown-menu" aria-labelledby="attendanceDropdown">
+                            <li><a class="dropdown-item" href="/attendance">Attendance Tracker (Daily)</a></li>
+                            <li><a class="dropdown-item" href="/attendance/report/daily">Daily Report</a></li>
+                            <li><a class="dropdown-item" href="/attendance/report/weekly">Weekly Report</a></li>
+                            <li><a class="dropdown-item" href="/attendance/report/monthly">Monthly Report</a></li>
+                            <li><a class="dropdown-item" href="/attendance/exceptions">Exceptions</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
@@ -150,8 +148,6 @@
                                     {% if att %}
                                         {% if att.exception_type == 'Absent' %}
                                         <span class="status-badge status-absent">Absent</span>
-                                        {% elif att.exception_type == 'Leave' %}
-                                        <span class="status-badge status-onleave">On Leave</span>
                                         {% elif att.exception_type == 'Early Leave' %}
                                         <span class="status-badge status-early">Early Leave</span>
                                         {% elif att.exception_type == 'Overtime' %}
@@ -180,13 +176,13 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if not att or (att.exception_type not in ['Absent', 'Leave', 'Early Leave', 'Overtime', 'Cover Up']) %}
+                                    {% if not att or (att.exception_type not in ['Absent', 'Early Leave', 'Overtime', 'Cover Up']) %}
                                     <select class="form-select form-select-sm mark-status" data-emp-id="{{ emp.employee_id }}">
                                         <option value="">Select Status</option>
                                         <option value="on_time">On Time</option>
                                         <option value="late">Late</option>
                                         <option value="absent">Absent</option>
-                                        <option value="on_leave">On Leave</option>
+                                        <option value="early_leave">Early Leave</option>
                                     </select>
                                     <button class="btn btn-sm btn-primary mt-1 save-attendance" data-emp-id="{{ emp.employee_id }}">
                                         Save

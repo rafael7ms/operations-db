@@ -226,10 +226,13 @@ def daily_report():
     report_date = datetime.utcnow().date()
 
     # Get all schedules for the day (not just attendance records)
+    # Only include schedules with valid start_time and stop_time (employees with no schedule time are OFF)
     schedules = Schedule.query.join(
         Employee
     ).filter(
-        Schedule.start_date == report_date
+        Schedule.start_date == report_date,
+        Schedule.start_time.isnot(None),
+        Schedule.stop_time.isnot(None)
     ).order_by(Employee.last_name).all()
 
     # Get attendance records for the day (indexed by employee_id)
@@ -281,15 +284,34 @@ def weekly_report():
     """Weekly attendance report (week to date from Monday)."""
     end_date = datetime.utcnow().date()
 
+    # Get filter parameters
+    department = request.args.get('department')
+    supervisor = request.args.get('supervisor')
+    batch = request.args.get('batch')
+    exception_type = request.args.get('exception_type')
+
     # Calculate start of week (Monday)
     days_since_monday = end_date.weekday()  # Monday = 0, Sunday = 6
     start_date = end_date - timedelta(days=days_since_monday)
 
-    # Get attendance for the week
-    weekly_attendances = Attendance.query.filter(
+    # Build query with filters
+    query = db.session.query(Attendance, Employee).join(
+        Employee, Attendance.employee_id == Employee.employee_id
+    ).filter(
         Attendance.date >= start_date,
         Attendance.date <= end_date
-    ).all()
+    )
+
+    if department:
+        query = query.filter(Employee.department == department)
+    if supervisor:
+        query = query.filter(Employee.supervisor == supervisor)
+    if batch:
+        query = query.filter(Employee.batch == batch)
+    if exception_type:
+        query = query.filter(Attendance.exception_type == exception_type)
+
+    weekly_attendances = query.all()
 
     # Calculate daily summaries
     daily_stats = {}
@@ -337,6 +359,12 @@ def weekly_report():
 @attendance_bp.route('/report/monthly')
 def monthly_report():
     """Monthly attendance report (month to date from 1st)."""
+    # Get filter parameters
+    department = request.args.get('department')
+    supervisor = request.args.get('supervisor')
+    batch = request.args.get('batch')
+    exception_type = request.args.get('exception_type')
+
     # Get current year and month
     now = datetime.utcnow()
     year = now.year
@@ -349,11 +377,24 @@ def monthly_report():
     else:
         end_date = datetime(year, month + 1, 1).date()
 
-    # Get attendance for the month
-    monthly_attendances = Attendance.query.filter(
+    # Build query with filters
+    query = db.session.query(Attendance, Employee).join(
+        Employee, Attendance.employee_id == Employee.employee_id
+    ).filter(
         Attendance.date >= start_date,
         Attendance.date < end_date
-    ).all()
+    )
+
+    if department:
+        query = query.filter(Employee.department == department)
+    if supervisor:
+        query = query.filter(Employee.supervisor == supervisor)
+    if batch:
+        query = query.filter(Employee.batch == batch)
+    if exception_type:
+        query = query.filter(Attendance.exception_type == exception_type)
+
+    monthly_attendances = query.all()
 
     # Calculate summary by employee
     employee_stats = {}

@@ -48,16 +48,14 @@
                         <a class="nav-link" href="/schedules">Schedules</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link active" href="/attendance">Daily Attendance</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/attendance/report/daily">Daily Report</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/attendance/report/weekly">Weekly Report</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/attendance/report/monthly">Monthly Report</a>
+                        <a class="nav-link dropdown-toggle" href="#" id="attendanceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Attendance</a>
+                        <ul class="dropdown-menu" aria-labelledby="attendanceDropdown">
+                            <li><a class="dropdown-item active" href="/attendance">Attendance Tracker (Daily)</a></li>
+                            <li><a class="dropdown-item" href="/attendance/report/daily">Daily Report</a></li>
+                            <li><a class="dropdown-item" href="/attendance/report/weekly">Weekly Report</a></li>
+                            <li><a class="dropdown-item" href="/attendance/report/monthly">Monthly Report</a></li>
+                            <li><a class="dropdown-item" href="/attendance/exceptions">Exceptions</a></li>
+                        </ul>
                     </li>
                 </ul>
             </div>
