@@ -236,20 +236,39 @@ def daily_report():
     attendance_records = Attendance.query.filter_by(date=report_date).all()
     attendance_by_employee = {a.employee_id: a for a in attendance_records}
 
-    # Calculate summary
-    total_scheduled = len(schedules)
-    present = len([s for s in schedules if attendance_by_employee.get(s.employee_id) and
-                   attendance_by_employee[s.employee_id].exception_type not in ['Absent', 'Leave']])
-    late = len([s for s in schedules if attendance_by_employee.get(s.employee_id) and
-                attendance_by_employee[s.employee_id].late_minutes > 0])
-    absent = len([s for s in schedules if attendance_by_employee.get(s.employee_id) and
-                  attendance_by_employee[s.employee_id].exception_type in ['Absent', 'Leave']])
+    # Get exceptions for the day that indicate the person is off
+    # (Vacation, Training, Nesting, Leave - any completed exception)
+    exceptions = ExceptionRecord.query.filter(
+        ExceptionRecord.start_date <= report_date,
+        ExceptionRecord.end_date >= report_date,
+        ExceptionRecord.exception_type.in_(['Vacation', 'Training', 'Nesting', 'Leave'])
+    ).all()
+    off_employee_ids = {e.employee_id for e in exceptions}
+
+    # Also include people marked Absent or On Leave in attendance
+    for att in attendance_records:
+        if att.exception_type in ['Absent', 'Leave', 'Early Leave']:
+            off_employee_ids.add(att.employee_id)
+
+    # Filter out people who are off
+    filtered_schedules = [s for s in schedules if s.employee_id not in off_employee_ids]
+    # Re-index attendance for filtered list
+    filtered_attendance = {emp_id: att for emp_id, att in attendance_by_employee.items() if emp_id not in off_employee_ids}
+
+    # Calculate summary (only for people who are working)
+    total_scheduled = len(filtered_schedules)
+    present = len([s for s in filtered_schedules if filtered_attendance.get(s.employee_id) and
+                   filtered_attendance[s.employee_id].exception_type not in ['Absent', 'Leave']])
+    late = len([s for s in filtered_schedules if filtered_attendance.get(s.employee_id) and
+                filtered_attendance[s.employee_id].late_minutes > 0])
+    absent = len([s for s in filtered_schedules if filtered_attendance.get(s.employee_id) and
+                  filtered_attendance[s.employee_id].exception_type in ['Absent', 'Leave']])
 
     return render_template(
         'attendance_tracker/daily_report.html',
         report_date=report_date,
-        schedules=schedules,
-        attendance_by_employee=attendance_by_employee,
+        schedules=filtered_schedules,
+        attendance_by_employee=filtered_attendance,
         total_scheduled=total_scheduled,
         present=present,
         late=late,
