@@ -222,13 +222,8 @@ def mark_attendance():
 
 @attendance_bp.route('/report/daily')
 def daily_report():
-    """Daily attendance report."""
-    date_str = request.args.get('date', datetime.utcnow().strftime('%Y-%m-%d'))
-
-    try:
-        report_date = datetime.strptime(date_str, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'error': 'Invalid date format'}), 400
+    """Daily attendance report for today."""
+    report_date = datetime.utcnow().date()
 
     # Get all attendance for the date
     attendances = Attendance.query.filter_by(date=report_date).all()
@@ -267,20 +262,17 @@ def daily_report():
 
 @attendance_bp.route('/report/weekly')
 def weekly_report():
-    """Weekly attendance report (last 7 days)."""
-    end_date = request.args.get('end_date', datetime.utcnow().strftime('%Y-%m-%d'))
+    """Weekly attendance report (week to date from Monday)."""
+    end_date = datetime.utcnow().date()
 
-    try:
-        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d').date()
-    except ValueError:
-        return jsonify({'error': 'Invalid date format'}), 400
-
-    start_date = end_date_obj - timedelta(days=6)
+    # Calculate start of week (Monday)
+    days_since_monday = end_date.weekday()  # Monday = 0, Sunday = 6
+    start_date = end_date - timedelta(days=days_since_monday)
 
     # Get attendance for the week
     weekly_attendances = Attendance.query.filter(
         Attendance.date >= start_date,
-        Attendance.date <= end_date_obj
+        Attendance.date <= end_date
     ).all()
 
     # Calculate daily summaries
@@ -304,7 +296,7 @@ def weekly_report():
     # Calculate summary cards
     total_scheduled = Schedule.query.filter(
         Schedule.start_date >= start_date,
-        Schedule.start_date <= end_date_obj
+        Schedule.start_date <= end_date
     ).count()
 
     present_count = len(weekly_attendances)
@@ -315,7 +307,7 @@ def weekly_report():
         'attendance_tracker/weekly_report.html',
         datetime=datetime,  # Pass datetime for template use
         start_date=start_date,
-        end_date=end_date_obj,
+        end_date=end_date,
         daily_stats=daily_stats,
         weekly_attendances=weekly_attendances,
         attendances=weekly_attendances,
@@ -328,15 +320,11 @@ def weekly_report():
 
 @attendance_bp.route('/report/monthly')
 def monthly_report():
-    """Monthly attendance report."""
-    year_str = request.args.get('year', datetime.utcnow().strftime('%Y'))
-    month_str = request.args.get('month', datetime.utcnow().strftime('%m'))
-
-    try:
-        year = int(year_str)
-        month = int(month_str)
-    except ValueError:
-        return jsonify({'error': 'Invalid date format'}), 400
+    """Monthly attendance report (month to date from 1st)."""
+    # Get current year and month
+    now = datetime.utcnow()
+    year = now.year
+    month = now.month
 
     # Get first and last day of month
     start_date = datetime(year, month, 1).date()
