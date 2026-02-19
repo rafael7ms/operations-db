@@ -20,7 +20,9 @@
         .status-overtime { background-color: #6610f2; color: white; }
         .status-coverup { background-color: #6c757d; color: white; }
         .status-onleave { background-color: #6c757d; color: white; }
-        .status-not-marked { background-color: #6c757d; color: white; }
+        .late-time-input {
+            max-width: 100px;
+        }
     </style>
 </head>
 <body>
@@ -76,7 +78,7 @@
 
         <!-- Summary Cards -->
         <div class="row mb-4">
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <div class="card bg-success text-white">
                     <div class="card-body">
                         <h5 class="card-title">Present</h5>
@@ -84,7 +86,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <div class="card bg-warning text-dark">
                     <div class="card-body">
                         <h5 class="card-title">Late</h5>
@@ -92,7 +94,7 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <div class="card bg-danger text-white">
                     <div class="card-body">
                         <h5 class="card-title">Absent</h5>
@@ -100,105 +102,97 @@
                     </div>
                 </div>
             </div>
-            <div class="col-md-2">
+            <div class="col-md-3">
                 <div class="card bg-secondary text-white">
                     <div class="card-body">
-                        <h5 class="card-title">Early Leave</h5>
-                        <p class="display-6">
-                            {{ attendances|selectattr('exception_type', 'equalto', 'Early Leave')|list|length }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="card bg-primary text-white">
-                    <div class="card-body">
-                        <h5 class="card-title">Overtime</h5>
-                        <p class="display-6">
-                            {{ attendances|selectattr('exception_type', 'equalto', 'Overtime')|list|length }}
-                        </p>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-2">
-                <div class="card bg-dark text-white">
-                    <div class="card-body">
-                        <h5 class="card-title">Cover Up</h5>
-                        <p class="display-6">
-                            {{ attendances|selectattr('exception_type', 'equalto', 'Cover Up')|list|length }}
-                        </p>
+                        <h5 class="card-title">Total Scheduled</h5>
+                        <p class="display-6">{{ total_scheduled }}</p>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Attendance Details -->
+        <!-- Attendance Table -->
         <div class="card">
             <div class="card-header bg-primary text-white">
-                <h5 class="mb-0">Attendance Details ({{ attendances|length }} records)</h5>
+                <h5 class="mb-0">Employee Attendance</h5>
             </div>
             <div class="card-body">
                 <div class="table-responsive">
-                    <table class="table table-striped table-hover">
+                    <table class="table table-striped table-hover" id="attendanceTable">
                         <thead class="table-light">
                             <tr>
                                 <th>Employee</th>
                                 <th>Employee ID</th>
-                                <th>Department</th>
-                                <th>Role</th>
-                                <th>Check In</th>
-                                <th>Check Out</th>
                                 <th>Shift</th>
                                 <th>Status</th>
-                                <th>Details</th>
+                                <th>Late Time</th>
+                                <th>Actions</th>
                             </tr>
                         </thead>
                         <tbody>
-                            {% for att in attendances %}
-                            {% set emp = att.employee %}
+                            {% for sched in schedules %}
+                            {% set emp = sched.employee %}
+                            {% set att = attendance_by_employee.get(emp.employee_id) %}
                             <tr>
-                                <td>{{ emp.full_name if emp else 'Unknown' }}</td>
+                                <td>
+                                    <strong>{{ emp.full_name if emp else 'Unknown' }}</strong>
+                                </td>
                                 <td>{{ emp.employee_id if emp else '-' }}</td>
-                                <td>{{ emp.department if emp else '-' }}</td>
-                                <td>{{ emp.role if emp else '-' }}</td>
-                                <td>{{ att.check_in.strftime('%I:%M %p') if att.check_in else '-' }}</td>
-                                <td>{{ att.check_out.strftime('%I:%M %p') if att.check_out else '-' }}</td>
                                 <td>
-                                    {% set sched = emp.schedules|selectattr('start_date', 'equalto', report_date)|first if emp else None %}
-                                    {% if sched and sched.start_time %}
-                                    {{ sched.start_time.strftime('%I:%M %p') }} - {{ sched.stop_time.strftime('%I:%M %p') if sched.stop_time else '' }}
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if att.exception_type == 'Absent' %}
-                                    <span class="status-badge status-absent">Absent</span>
-                                    {% elif att.exception_type == 'Leave' %}
-                                    <span class="status-badge status-onleave">On Leave</span>
-                                    {% elif att.exception_type == 'Early Leave' %}
-                                    <span class="status-badge status-early">Early Leave ({{ att.early_leave.strftime('%I:%M %p') if att.early_leave else '' }})</span>
-                                    {% elif att.exception_type == 'Overtime' %}
-                                    <span class="status-badge status-overtime">OT ({{ att.overtime_minutes }} min)</span>
-                                    {% elif att.exception_type == 'Cover Up' %}
-                                    <span class="status-badge status-coverup">Cover Up</span>
-                                    {% elif att.late_minutes and att.late_minutes > 0 %}
-                                    <span class="status-badge status-late">Late ({{ att.late_minutes }} min)</span>
-                                    {% else %}
-                                    <span class="status-badge status-present">Present</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if att.exception_type == 'Early Leave' %}
-                                    Left at: {{ att.early_leave.strftime('%I:%M %p') if att.early_leave else 'N/A' }}
-                                    {% elif att.exception_type == 'Overtime' %}
-                                    {{ att.overtime_minutes }} minutes
-                                    {% elif att.exception_type == 'Cover Up' %}
-                                    {% if att.cover_up_for_employee %}
-                                    Covering: {{ att.cover_up_for_employee.full_name }}
-                                    {% endif %}
-                                    {% elif att.late_minutes and att.late_minutes > 0 %}
-                                    {{ att.late_minutes }} minutes late
+                                    {% if sched.start_time and sched.stop_time %}
+                                    {{ sched.start_time.strftime('%I:%M %p') }} - {{ sched.stop_time.strftime('%I:%M %p') }}
                                     {% else %}
                                     -
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if att %}
+                                        {% if att.exception_type == 'Absent' %}
+                                        <span class="status-badge status-absent">Absent</span>
+                                        {% elif att.exception_type == 'Leave' %}
+                                        <span class="status-badge status-onleave">On Leave</span>
+                                        {% elif att.exception_type == 'Early Leave' %}
+                                        <span class="status-badge status-early">Early Leave</span>
+                                        {% elif att.exception_type == 'Overtime' %}
+                                        <span class="status-badge status-overtime">Overtime</span>
+                                        {% elif att.exception_type == 'Cover Up' %}
+                                        <span class="status-badge status-coverup">Cover Up</span>
+                                        {% elif att.late_minutes and att.late_minutes > 0 %}
+                                        <span class="status-badge status-late">Late</span>
+                                        {% else %}
+                                        <span class="status-badge status-present">On Time</span>
+                                        {% endif %}
+                                    {% else %}
+                                    <span class="status-badge status-not-marked">No Record</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if att and att.late_minutes and att.late_minutes > 0 %}
+                                    <input type="text" class="form-control form-control-sm late-time-input"
+                                           data-emp-id="{{ emp.employee_id }}"
+                                           value="{{ '%02d:%02d' % (att.late_minutes // 60, att.late_minutes % 60) }}"
+                                           placeholder="HH:MM">
+                                    {% else %}
+                                    <input type="text" class="form-control form-control-sm late-time-input"
+                                           data-emp-id="{{ emp.employee_id }}"
+                                           placeholder="HH:MM" disabled>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if not att or (att.exception_type not in ['Absent', 'Leave', 'Early Leave', 'Overtime', 'Cover Up']) %}
+                                    <select class="form-select form-select-sm mark-status" data-emp-id="{{ emp.employee_id }}">
+                                        <option value="">Select Status</option>
+                                        <option value="on_time">On Time</option>
+                                        <option value="late">Late</option>
+                                        <option value="absent">Absent</option>
+                                        <option value="on_leave">On Leave</option>
+                                    </select>
+                                    <button class="btn btn-sm btn-primary mt-1 save-attendance" data-emp-id="{{ emp.employee_id }}">
+                                        Save
+                                    </button>
+                                    {% else %}
+                                    <span class="text-muted">Marked</span>
                                     {% endif %}
                                 </td>
                             </tr>
@@ -211,5 +205,65 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    // Handle status selection
+    document.querySelectorAll('.mark-status').forEach(select => {
+        select.addEventListener('change', function() {
+            const empId = this.dataset.empId;
+            const status = this.value;
+            const timeInput = document.querySelector(`input[data-emp-id="${empId}"]`);
+
+            if (status === 'late') {
+                timeInput.disabled = false;
+                timeInput.focus();
+            } else {
+                timeInput.disabled = true;
+                timeInput.value = '';
+            }
+        });
+    });
+
+    // Save attendance
+    document.querySelectorAll('.save-attendance').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const empId = this.dataset.empId;
+            const statusSelect = document.querySelector(`.mark-status[data-emp-id="${empId}"]`);
+            const timeInput = document.querySelector(`input[data-emp-id="${empId}"]`);
+
+            const status = statusSelect.value;
+            let lateMinutes = 0;
+
+            if (status === 'late' && timeInput.value) {
+                // Parse HH:MM format
+                const parts = timeInput.value.split(':');
+                if (parts.length === 2) {
+                    const hours = parseInt(parts[0]) || 0;
+                    const minutes = parseInt(parts[1]) || 0;
+                    lateMinutes = hours * 60 + minutes;
+                }
+            }
+
+            fetch('/attendance/daily/mark', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    employee_id: empId,
+                    date: '{{ report_date.strftime("%Y-%m-%d") }}',
+                    status: status,
+                    late_minutes: lateMinutes
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                alert(data.message);
+                location.reload();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error saving attendance');
+            });
+        });
+    });
+    </script>
 </body>
 </html>

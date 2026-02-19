@@ -222,41 +222,38 @@ def mark_attendance():
 
 @attendance_bp.route('/report/daily')
 def daily_report():
-    """Daily attendance report for today."""
+    """Daily attendance report for today - all schedules with attendance marking."""
     report_date = datetime.utcnow().date()
 
-    # Get all attendance for the date
-    attendances = Attendance.query.filter_by(date=report_date).all()
+    # Get all schedules for the day (not just attendance records)
+    schedules = Schedule.query.join(
+        Employee
+    ).filter(
+        Schedule.start_date == report_date
+    ).order_by(Employee.last_name).all()
+
+    # Get attendance records for the day (indexed by employee_id)
+    attendance_records = Attendance.query.filter_by(date=report_date).all()
+    attendance_by_employee = {a.employee_id: a for a in attendance_records}
 
     # Calculate summary
-    total_scheduled = Schedule.query.filter_by(start_date=report_date).count()
-    present = Attendance.query.filter_by(date=report_date).count()
-    late = Attendance.query.filter(
-        Attendance.date == report_date,
-        Attendance.late_minutes > 0
-    ).count()
-    absent = Attendance.query.filter(
-        Attendance.date == report_date,
-        Attendance.exception_type.in_(['Absent', 'Leave'])
-    ).count()
-
-    # Get late employees with details
-    late_employees = db.session.query(Attendance, Employee).join(
-        Employee, Attendance.employee_id == Employee.employee_id
-    ).filter(
-        Attendance.date == report_date,
-        Attendance.late_minutes > 0
-    ).all()
+    total_scheduled = len(schedules)
+    present = len([s for s in schedules if attendance_by_employee.get(s.employee_id) and
+                   attendance_by_employee[s.employee_id].exception_type not in ['Absent', 'Leave']])
+    late = len([s for s in schedules if attendance_by_employee.get(s.employee_id) and
+                attendance_by_employee[s.employee_id].late_minutes > 0])
+    absent = len([s for s in schedules if attendance_by_employee.get(s.employee_id) and
+                  attendance_by_employee[s.employee_id].exception_type in ['Absent', 'Leave']])
 
     return render_template(
         'attendance_tracker/daily_report.html',
         report_date=report_date,
-        attendances=attendances,
+        schedules=schedules,
+        attendance_by_employee=attendance_by_employee,
         total_scheduled=total_scheduled,
         present=present,
         late=late,
-        absent=absent,
-        late_employees=late_employees
+        absent=absent
     )
 
 
