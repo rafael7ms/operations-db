@@ -635,9 +635,8 @@ def delete_db_user(user_id):
 # ==================== API DOCUMENTATION ====================
 
 @bp.route('/apidocs')
-@login_required
 def apidocs():
-    """API documentation page."""
+    """API documentation page - publicly accessible."""
     return render_template('apidocs.html')
 
 

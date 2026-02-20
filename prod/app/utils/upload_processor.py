@@ -176,9 +176,10 @@ def process_schedule_upload(file_path, employee_file_path=None):
         employee_file_path: Optional path to employee Excel file for RUEX ID matching
 
     Returns:
-        (success_count, error_count, errors_list)
+        (success_count, error_count, errors_list, duplicates_list)
     """
     errors = []
+    duplicates = []
     success_count = 0
 
     try:
@@ -309,6 +310,31 @@ def process_schedule_upload(file_path, employee_file_path=None):
 
             work_code = str(row['Work - Code']).strip() if pd.notna(row['Work - Code']) else None
 
+            # Check for duplicate schedules
+            existing_schedule = Schedule.query.filter_by(
+                employee_id=employee_id,
+                start_date=start_date
+            ).first()
+
+            if existing_schedule:
+                # Check if the existing schedule is identical (considered a duplicate)
+                existing_start = str(existing_schedule.start_time) if existing_schedule.start_time else None
+                existing_stop = str(existing_schedule.stop_time) if existing_schedule.stop_time else None
+                existing_work = existing_schedule.work_code
+
+                new_start = str(start_time) if start_time else None
+                new_stop = str(stop_time) if stop_time else None
+
+                # If the schedule is identical, skip it as a duplicate
+                if (existing_start == new_start and
+                    existing_stop == new_stop and
+                    existing_work == work_code):
+                    duplicates.append(f'Row {idx + 2}: Duplicate schedule for employee {employee_id} on {start_date}')
+                    continue
+
+                # If different, it's a schedule change (swap/replace) - remove the old one first
+                db.session.delete(existing_schedule)
+
             schedule = Schedule(
                 employee_id=employee_id,
                 start_date=start_date,
@@ -325,7 +351,7 @@ def process_schedule_upload(file_path, employee_file_path=None):
             errors.append(f'Row {idx + 2}: {str(e)}')
 
     db.session.commit()
-    return success_count, len(errors), errors
+    return success_count, len(errors), errors, duplicates
 
 
 def process_attendance_upload(file_path):

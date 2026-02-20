@@ -8,40 +8,7 @@
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
 <body>
-    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
-        <div class="container">
-            <a class="navbar-brand" href="/">Operations DB</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav">
-                    <li class="nav-item">
-                        <a class="nav-link" href="/dashboard">Dashboard</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/employees">Employees</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/schedules">Schedules</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link dropdown-toggle" href="#" id="attendanceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Attendance</a>
-                        <ul class="dropdown-menu" aria-labelledby="attendanceDropdown">
-                            <li><a class="dropdown-item" href="/attendance">Attendance Tracker (Daily)</a></li>
-                            <li><a class="dropdown-item" href="/attendance/report/daily">Daily Report</a></li>
-                            <li><a class="dropdown-item" href="/attendance/report/weekly">Weekly Report</a></li>
-                            <li><a class="dropdown-item" href="/attendance/report/monthly">Monthly Report</a></li>
-                            <li><a class="dropdown-item" href="/attendance/exceptions">Exceptions</a></li>
-                        </ul>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/exceptions">Exceptions</a>
-                    </li>
-                </ul>
-            </div>
-        </div>
-    </nav>
+    {% include '_navbar.html' %}
 
     <div class="container mt-4">
         <h1 class="mb-4">Dashboard</h1>

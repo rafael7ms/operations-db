@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from werkzeug.exceptions import BadRequest
+from functools import wraps
 from app import db
 from app.models import Employee, Schedule, Attendance, LeaveRequest, ScheduleChange, ExceptionRecord, AdminOptions, RewardReason, EmployeeReward
 
@@ -14,6 +15,28 @@ class APIError(BadRequest):
 
 
 bp = Blueprint('api', __name__)
+
+
+def require_api_key(f):
+    """Decorator to require API key authentication."""
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        api_key = request.headers.get('X-API-Key')
+        if not api_key:
+            return jsonify({'error': 'API key required'}), 401
+
+        # Check if API key is valid in admin_options
+        valid_key = AdminOptions.query.filter_by(
+            category='api_key',
+            value=api_key,
+            is_active=True
+        ).first()
+
+        if not valid_key:
+            return jsonify({'error': 'Invalid API key'}), 401
+
+        return f(*args, **kwargs)
+    return decorated_function
 
 
 @bp.route('/', methods=['GET'])
@@ -32,9 +55,8 @@ def health_check():
     return jsonify({'status': 'healthy'}), 200
 
 
-# ==================== EMPLOYEE ENDPOINTS ====================
-
 @bp.route('/employees', methods=['GET'])
+@require_api_key
 def get_employees():
     """Get all active employees or filter by status."""
     status = request.args.get('status', 'Active')
@@ -53,6 +75,7 @@ def get_employees():
 
 
 @bp.route('/employees/<int:employee_id>', methods=['GET'])
+@require_api_key
 def get_employee(employee_id):
     """Get single employee by ID."""
     employee = Employee.query.get_or_404(employee_id)
@@ -80,6 +103,7 @@ def get_employee(employee_id):
 
 
 @bp.route('/employees', methods=['POST'])
+@require_api_key
 def create_employee():
     """Create new employee."""
     data = request.get_json()
@@ -121,6 +145,7 @@ def create_employee():
 
 
 @bp.route('/employees/<int:employee_id>', methods=['PUT'])
+@require_api_key
 def update_employee(employee_id):
     """Update employee."""
     employee = Employee.query.get_or_404(employee_id)
@@ -145,6 +170,7 @@ def update_employee(employee_id):
 
 
 @bp.route('/employees/<int:employee_id>', methods=['DELETE'])
+@require_api_key
 def delete_employee(employee_id):
     """Delete employee (move to history)."""
     employee = Employee.query.get_or_404(employee_id)
@@ -156,6 +182,7 @@ def delete_employee(employee_id):
 # ==================== SCHEDULE ENDPOINTS ====================
 
 @bp.route('/schedules', methods=['GET'])
+@require_api_key
 def get_schedules():
     """Get schedules for date range."""
     start_date = request.args.get('start_date')
@@ -183,6 +210,7 @@ def get_schedules():
 
 
 @bp.route('/schedules', methods=['POST'])
+@require_api_key
 def create_schedule():
     """Create new schedule."""
     data = request.get_json()
@@ -204,6 +232,7 @@ def create_schedule():
 # ==================== ATTENDANCE ENDPOINTS ====================
 
 @bp.route('/attendances', methods=['GET'])
+@require_api_key
 def get_attendances():
     """Get attendance records for date range."""
     start_date = request.args.get('start_date')
@@ -231,6 +260,7 @@ def get_attendances():
 
 
 @bp.route('/attendances', methods=['POST'])
+@require_api_key
 def create_attendance():
     """Create attendance record."""
     data = request.get_json()
@@ -250,6 +280,7 @@ def create_attendance():
 
 
 @bp.route('/attendances/<int:employee_id>/<string:date>', methods=['PUT'])
+@require_api_key
 def update_attendance(employee_id, date):
     """Update attendance record."""
     attendance = Attendance.query.filter_by(
@@ -271,6 +302,7 @@ def update_attendance(employee_id, date):
 # ==================== LEAVE REQUEST ENDPOINTS ====================
 
 @bp.route('/leave_requests', methods=['GET'])
+@require_api_key
 def get_leave_requests():
     """Get leave requests."""
     status = request.args.get('status')
@@ -294,6 +326,7 @@ def get_leave_requests():
 
 
 @bp.route('/leave_requests', methods=['POST'])
+@require_api_key
 def create_leave_request():
     """Create new leave request."""
     data = request.get_json()
@@ -312,6 +345,7 @@ def create_leave_request():
 
 
 @bp.route('/leave_requests/<int:leave_id>/approve', methods=['POST'])
+@require_api_key
 def approve_leave_request(leave_id):
     """Approve leave request."""
     leave = LeaveRequest.query.get_or_404(leave_id)
@@ -329,6 +363,7 @@ def approve_leave_request(leave_id):
 # ==================== EXCEPTION RECORD ENDPOINTS ====================
 
 @bp.route('/exceptions', methods=['GET'])
+@require_api_key
 def get_exceptions():
     """Get exception records."""
     status = request.args.get('status')
@@ -354,6 +389,7 @@ def get_exceptions():
 
 
 @bp.route('/exceptions', methods=['POST'])
+@require_api_key
 def create_exception():
     """Create exception record (batch or single)."""
     data = request.get_json()
@@ -375,6 +411,7 @@ def create_exception():
 
 
 @bp.route('/exceptions/<int:exception_id>/process', methods=['POST'])
+@require_api_key
 def process_exception(exception_id):
     """Process exception record."""
     exception = ExceptionRecord.query.get_or_404(exception_id)
@@ -392,6 +429,7 @@ def process_exception(exception_id):
 # ==================== ADMIN OPTIONS ENDPOINTS ====================
 
 @bp.route('/admin/options', methods=['GET'])
+@require_api_key
 def get_admin_options():
     """Get all admin options."""
     category = request.args.get('category')
@@ -408,6 +446,7 @@ def get_admin_options():
 
 
 @bp.route('/admin/options', methods=['POST'])
+@require_api_key
 def create_admin_option():
     """Create new admin option."""
     data = request.get_json()
@@ -425,6 +464,7 @@ def create_admin_option():
 # ==================== REWARD ENDPOINTS ====================
 
 @bp.route('/rewards/reasons', methods=['GET'])
+@require_api_key
 def get_reward_reasons():
     """Get reward reasons."""
     reasons = RewardReason.query.filter_by(is_active=True).all()
@@ -436,6 +476,7 @@ def get_reward_reasons():
 
 
 @bp.route('/rewards/employee/<int:employee_id>', methods=['GET'])
+@require_api_key
 def get_employee_rewards(employee_id):
     """Get employee reward history."""
     rewards = EmployeeReward.query.filter_by(employee_id=employee_id).all()
@@ -448,6 +489,7 @@ def get_employee_rewards(employee_id):
 
 
 @bp.route('/rewards/award', methods=['POST'])
+@require_api_key
 def award_points():
     """Award points to employee."""
     from app.models import Employee, EmployeeReward
@@ -483,6 +525,7 @@ def award_points():
 # ==================== BATCH ENDPOINTS ====================
 
 @bp.route('/employees/batch', methods=['POST'])
+@require_api_key
 def create_employees_batch():
     """Bulk import employees from Excel file."""
     from app.utils.upload_processor import process_employee_upload
@@ -517,6 +560,7 @@ def create_employees_batch():
 
 
 @bp.route('/schedules/batch', methods=['POST'])
+@require_api_key
 def create_schedules_batch():
     """Bulk import schedules from Excel file.
 
@@ -560,7 +604,7 @@ def create_schedules_batch():
             employee_file_path = os.path.join(temp_dir, employee_file.filename)
             employee_file.save(employee_file_path)
 
-        success_count, error_count, errors = process_schedule_upload(
+        success_count, error_count, errors, duplicates = process_schedule_upload(
             file_path, employee_file_path=employee_file_path
         )
 
@@ -572,7 +616,8 @@ def create_schedules_batch():
             'message': f'Bulk schedule import completed',
             'success_count': success_count,
             'error_count': error_count,
-            'errors': errors[:10]
+            'errors': errors[:10],
+            'duplicates': duplicates[:10]
         }), 201
 
     except Exception as e:
@@ -581,6 +626,7 @@ def create_schedules_batch():
 
 
 @bp.route('/attendances/batch', methods=['POST'])
+@require_api_key
 def create_attendance_batch():
     """Bulk import attendance from Excel file.
 
@@ -626,6 +672,7 @@ def create_attendance_batch():
 
 
 @bp.route('/exceptions/batch', methods=['POST'])
+@require_api_key
 def create_exceptions_batch():
     """Bulk import exception records from Excel file.
 
@@ -672,6 +719,7 @@ def create_exceptions_batch():
 
 
 @bp.route('/rewards/award/batch', methods=['POST'])
+@require_api_key
 def award_points_batch():
     """Bulk award points to employees.
 
@@ -774,6 +822,7 @@ def award_points_batch():
 # ==================== REWARD BALANCE ENDPOINTS ====================
 
 @bp.route('/rewards/employee/<int:employee_id>/balance', methods=['GET'])
+@require_api_key
 def get_employee_balance(employee_id):
     """Get employee's current point balance."""
     from app.models import Employee
@@ -787,6 +836,7 @@ def get_employee_balance(employee_id):
 
 
 @bp.route('/rewards/redemptions', methods=['POST'])
+@require_api_key
 def create_redemption():
     """Redeem points for an employee."""
     from app.models import Employee, EmployeeRewardRedemption

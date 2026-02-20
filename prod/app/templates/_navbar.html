@@ -1,0 +1,34 @@
+<nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+    <div class="container">
+        <a class="navbar-brand" href="{{ url_for('main.dashboard') }}">Operations DB</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav">
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('main.dashboard') }}">Dashboard</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('main.employees') }}">Employees</a>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('main.schedules') }}">Schedules</a>
+                </li>
+                <li class="nav-item dropdown">
+                    <a class="nav-link dropdown-toggle" href="#" id="attendanceDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">Attendance</a>
+                    <ul class="dropdown-menu" aria-labelledby="attendanceDropdown">
+                        <li><a class="dropdown-item" href="{{ url_for('attendance_tracker.attendance_page') }}">Attendance Tracker (Daily)</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('attendance_tracker.daily_report') }}">Daily Report</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('attendance_tracker.weekly_report') }}">Weekly Report</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('attendance_tracker.monthly_report') }}">Monthly Report</a></li>
+                        <li><a class="dropdown-item" href="{{ url_for('attendance_tracker.exception_list') }}">Exceptions</a></li>
+                    </ul>
+                </li>
+                <li class="nav-item">
+                    <a class="nav-link" href="{{ url_for('main.exceptions') }}">Exceptions</a>
+                </li>
+            </ul>
+        </div>
+    </div>
+</nav>
