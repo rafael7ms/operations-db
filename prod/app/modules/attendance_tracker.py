@@ -195,16 +195,25 @@ def mark_attendance():
             attendance.notes = notes
     else:
         # Create new record
+        # Set check_in and check_out based on shift time if available
+        check_in = None
+        check_out = None
+        if schedule:
+            check_in = schedule.start_time
+            check_out = schedule.stop_time
+
         attendance = Attendance(
             employee_id=employee_id,
             date=date,
+            check_in=check_in,
+            check_out=check_out,
             exception_type='Absent' if status == 'absent' else
                         'Late' if status == 'late' else
                         'Early Leave' if status == 'early_leave' else
                         'Overtime' if status == 'overtime' else
                         'Cover Up' if status == 'cover_up' else
                         'Leave' if status == 'on_leave' else None,
-            late_minutes=late_minutes if status == 'late' else None,
+            late_minutes=late_minutes if status in ['late', 'present'] else None,
             early_leave=early_leave if status == 'early_leave' else None,
             overtime_minutes=overtime_minutes if status == 'overtime' else None,
             cover_up_for_employee_id=cover_up_for_id if status == 'cover_up' else None,
@@ -218,6 +227,12 @@ def mark_attendance():
         'message': 'Attendance marked successfully',
         'attendance_id': attendance.attendance_id
     })
+
+
+@attendance_bp.route('/mark', methods=['POST'])
+def mark_attendance_legacy():
+    """Legacy endpoint for marking attendance (used by daily_attendance.html)."""
+    return mark_attendance()
 
 
 @attendance_bp.route('/report/daily')

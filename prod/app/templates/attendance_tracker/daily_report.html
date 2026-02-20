@@ -137,7 +137,8 @@
                                     <strong>{{ emp.full_name if emp else 'Unknown' }}</strong>
                                 </td>
                                 <td>{{ emp.employee_id if emp else '-' }}</td>
-                                <td>
+                                <td data-shift-start="{{ sched.start_time.strftime('%H:%M') if sched.start_time else '' }}"
+                                    data-shift-stop="{{ sched.stop_time.strftime('%H:%M') if sched.stop_time else '' }}">
                                     {% if sched.start_time and sched.stop_time %}
                                     {{ sched.start_time.strftime('%I:%M %p') }} - {{ sched.stop_time.strftime('%I:%M %p') }}
                                     {% else %}
@@ -164,11 +165,22 @@
                                     {% endif %}
                                 </td>
                                 <td>
-                                    {% if att and att.late_minutes and att.late_minutes > 0 %}
-                                    <input type="text" class="form-control form-control-sm late-time-input"
-                                           data-emp-id="{{ emp.employee_id }}"
-                                           value="{{ '%02d:%02d' % (att.late_minutes // 60, att.late_minutes % 60) }}"
-                                           placeholder="HH:MM">
+                                    {% if att %}
+                                        {% if att.late_minutes and att.late_minutes > 0 %}
+                                        <input type="text" class="form-control form-control-sm late-time-input"
+                                               data-emp-id="{{ emp.employee_id }}"
+                                               value="{{ '%02d:%02d' % (att.late_minutes // 60, att.late_minutes % 60) }}"
+                                               placeholder="HH:MM">
+                                        {% elif att.exception_type == 'Early Leave' and att.early_leave %}
+                                        <input type="text" class="form-control form-control-sm late-time-input"
+                                               data-emp-id="{{ emp.employee_id }}"
+                                               value="{{ att.early_leave.strftime('%I:%M %p') }}"
+                                               placeholder="HH:MM">
+                                        {% else %}
+                                        <input type="text" class="form-control form-control-sm late-time-input"
+                                               data-emp-id="{{ emp.employee_id }}"
+                                               placeholder="HH:MM" disabled>
+                                        {% endif %}
                                     {% else %}
                                     <input type="text" class="form-control form-control-sm late-time-input"
                                            data-emp-id="{{ emp.employee_id }}"
@@ -209,7 +221,7 @@
             const status = this.value;
             const timeInput = document.querySelector(`input[data-emp-id="${empId}"]`);
 
-            if (status === 'late') {
+            if (status === 'late' || status === 'early_leave') {
                 timeInput.disabled = false;
                 timeInput.focus();
             } else {
@@ -225,17 +237,45 @@
             const empId = this.dataset.empId;
             const statusSelect = document.querySelector(`.mark-status[data-emp-id="${empId}"]`);
             const timeInput = document.querySelector(`input[data-emp-id="${empId}"]`);
+            const shiftCell = document.querySelector(`[data-emp-id="${empId}"]`).closest('tr').querySelectorAll('td')[2]; // Shift column index
+            const shiftStart = shiftCell.dataset.shiftStart;
+            const shiftStop = shiftCell.dataset.shiftStop;
 
             const status = statusSelect.value;
             let lateMinutes = 0;
+            let earlyLeaveMinutes = 0; // Minutes before shift end
+            let earlyLeaveTime = null;
 
             if (status === 'late' && timeInput.value) {
-                // Parse HH:MM format
+                // Parse HH:MM format for late minutes
                 const parts = timeInput.value.split(':');
                 if (parts.length === 2) {
                     const hours = parseInt(parts[0]) || 0;
                     const minutes = parseInt(parts[1]) || 0;
                     lateMinutes = hours * 60 + minutes;
+                }
+            } else if (status === 'early_leave' && timeInput.value) {
+                // Parse HH:MM format for early leave time
+                earlyLeaveTime = timeInput.value;
+                // Calculate minutes from shift end time
+                if (shiftStop) {
+                    const leaveParts = timeInput.value.split(':');
+                    if (leaveParts.length === 2) {
+                        const leaveHours = parseInt(leaveParts[0]) || 0;
+                        const leaveMinutes = parseInt(leaveParts[1]) || 0;
+                        const leaveTotalMinutes = leaveHours * 60 + leaveMinutes;
+
+                        // Parse shift stop time
+                        const shiftParts = shiftStop.split(':');
+                        if (shiftParts.length === 2) {
+                            const shiftHours = parseInt(shiftParts[0]) || 0;
+                            const shiftMins = parseInt(shiftParts[1]) || 0;
+                            const shiftTotalMinutes = shiftHours * 60 + shiftMins;
+
+                            // Calculate minutes before shift end
+                            earlyLeaveMinutes = shiftTotalMinutes - leaveTotalMinutes;
+                        }
+                    }
                 }
             }
 
@@ -246,7 +286,9 @@
                     employee_id: empId,
                     date: '{{ report_date.strftime("%Y-%m-%d") }}',
                     status: status,
-                    late_minutes: lateMinutes
+                    late_minutes: lateMinutes,
+                    early_leave_time: earlyLeaveTime,
+                    early_leave_minutes: earlyLeaveMinutes
                 })
             })
             .then(response => response.json())
