@@ -25,7 +25,8 @@
       "Bash(find:*)",
       "Bash(pkill:*)",
       "Bash(powershell -Command:*)",
-      "Bash(//c/Windows/System32/taskkill.exe:*)"
+      "Bash(//c/Windows/System32/taskkill.exe:*)",
+      "Bash(set:*)"
     ]
   }
 }
